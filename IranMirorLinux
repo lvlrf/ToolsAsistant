@@ -1,5 +1,5 @@
 # 1) ساخت فایل 
-cat > IranMirorLinux.sh <<'EOF'
+cat > IranMirorLinux.sh <<'__SCRIPT__'
 #!/usr/bin/env bash
 set -euo pipefail
 
@@ -505,7 +505,7 @@ main() {
 
 main "$@"
 
-EOF
+__SCRIPT__
 
 # 2) دادن مجوز اجرا (به‌جای 777، حالت امن‌تر)
 chmod +x IranMirorLinux.sh
