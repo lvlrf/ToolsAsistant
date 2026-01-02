@@ -1,5 +1,14 @@
 # 1) ساخت فایل 
-cat > IranMirorLinux.sh <<'__SCRIPT__'
+nano IranMirorLinux.sh
+
+# 2) دادن مجوز اجرا (به‌جای 777، حالت امن‌تر)
+chmod +x IranMirorLinux.sh
+
+# 3) اجرا با sudo
+sudo ./IranMirorLinux.sh
+
+
+============
 #!/usr/bin/env bash
 set -euo pipefail
 
@@ -505,10 +514,4 @@ main() {
 
 main "$@"
 
-__SCRIPT__
-
-# 2) دادن مجوز اجرا (به‌جای 777، حالت امن‌تر)
-chmod +x IranMirorLinux.sh
-
-# 3) اجرا با sudo
-sudo ./IranMirorLinux.sh
+============
