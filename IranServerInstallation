@@ -1,0 +1,475 @@
+# 1) ساخت فایل 
+cat > IranServerInstallation.sh <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+# =============================
+# Offline Kit Builder for Ubuntu
+# Creates an offline-ready stash of:
+# - APT tools installed
+# - Docker installed
+# - Docker images pulled/built and saved as .tar
+# - Git repos cloned
+# - Sample docker-compose file stored
+# =============================
+
+KIT_ROOT="${KIT_ROOT:-/opt/offline-kit}"
+IMAGES_DIR="$KIT_ROOT/docker-images"
+REPOS_DIR="$KIT_ROOT/repos"
+LOG_DIR="$KIT_ROOT/logs"
+META_DIR="$KIT_ROOT/meta"
+COMPOSE_DIR="$KIT_ROOT/compose"
+PIP_DIR="$KIT_ROOT/pip-wheels"
+APT_DL_DIR="$KIT_ROOT/apt-packages"
+
+mkdir -p "$IMAGES_DIR" "$REPOS_DIR" "$LOG_DIR" "$META_DIR" "$COMPOSE_DIR" "$PIP_DIR" "$APT_DL_DIR"
+
+log() { echo "[+] $*" | tee -a "$LOG_DIR/offline-kit.log" >/dev/null; }
+warn() { echo "[!] $*" | tee -a "$LOG_DIR/offline-kit.log" >/dev/null; }
+die() { echo "[X] $*" | tee -a "$LOG_DIR/offline-kit.log" >/dev/null; exit 1; }
+
+require_root() {
+  if [[ "${EUID}" -ne 0 ]]; then
+    die "این اسکریپت باید با root اجرا شود: sudo bash offline-kit.sh"
+  fi
+}
+
+run() {
+  # shellcheck disable=SC2068
+  "$@" 2>&1 | tee -a "$LOG_DIR/offline-kit.log"
+}
+
+detect_ubuntu() {
+  if [[ ! -f /etc/os-release ]]; then die "os-release پیدا نشد."; fi
+  # shellcheck disable=SC1091
+  . /etc/os-release
+  if [[ "${ID:-}" != "ubuntu" ]]; then
+    warn "این اسکریپت برای Ubuntu نوشته شده. ID=$ID"
+  fi
+  echo "${VERSION_CODENAME:-}" > "$META_DIR/ubuntu_codename.txt"
+}
+
+apt_prep() {
+  log "APT prep: update + base certs/tools"
+  export DEBIAN_FRONTEND=noninteractive
+  run apt-get update -y
+  run apt-get install -y --no-install-recommends ca-certificates curl wget gnupg lsb-release tzdata
+  run update-ca-certificates || true
+}
+
+install_tools() {
+  log "Installing network/system tools..."
+  local pkgs=(
+    net-tools iproute2 iptables iptables-persistent
+    iputils-ping traceroute mtr tcpdump nmap
+    iftop nethogs bmon bridge-utils
+    dnsutils bind9-utils whois
+    openssh-server fail2ban
+    curl wget git unzip zip tar
+    screen tmux vim htop iotop ncdu jq ripgrep
+    snapd flatpak
+    ufw ethtool socat netcat-openbsd
+    iperf3
+    rsync cron
+    python3 python3-venv python3-pip
+    haproxy nginx
+    strongswan strongswan-swanctl
+    wireguard wireguard-tools resolvconf
+    openvpn
+  )
+
+  run apt-get install -y "${pkgs[@]}"
+
+  # Save the package list for later auditing
+  printf "%s\n" "${pkgs[@]}" > "$META_DIR/installed_packages_requested.txt"
+}
+
+install_docker() {
+  log "Installing Docker (tries Docker CE repo, falls back to ubuntu docker.io)..."
+
+  # Try Docker CE via official repo (more current)
+  if curl -fsSL --retry 5 --retry-delay 2 https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc 2>/dev/null; then
+    chmod a+r /etc/apt/keyrings/docker.asc
+    local codename
+    codename="$(cat "$META_DIR/ubuntu_codename.txt" 2>/dev/null || true)"
+
+    if [[ -z "$codename" ]]; then
+      codename="$(. /etc/os-release && echo "${VERSION_CODENAME:-}")"
+    fi
+
+    cat >/etc/apt/sources.list.d/docker.list <<EOF
+deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu ${codename} stable
+EOF
+
+    # Update & install; if repo not compatible (404 on some codenames), fallback later
+    if apt-get update -y && apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin; then
+      log "Docker CE installed."
+    else
+      warn "Docker CE repo install failed; falling back to ubuntu docker.io ..."
+      rm -f /etc/apt/sources.list.d/docker.list || true
+      run apt-get update -y
+      run apt-get install -y docker.io docker-compose
+    fi
+  else
+    warn "Could not fetch Docker GPG (SSL/network?). Falling back to ubuntu docker.io ..."
+    run apt-get install -y docker.io docker-compose
+  fi
+
+  run systemctl enable --now docker
+  run docker --version || die "Docker نصب نشد."
+  run docker compose version || true
+}
+
+# Pull & save images to tar (offline)
+pull_and_save_images() {
+  log "Pulling and saving core Docker images..."
+
+  local images=(
+    "netdata/netdata:latest"
+    "linuxserver/librespeed:latest"
+    "networkstatic/iperf3:latest"
+    "pihole/pihole:latest"
+    "snowdreamtech/frps:latest"
+    "nginx:alpine"
+    "mariadb:10.11"
+    "postgres:16-alpine"
+    "redis:alpine"
+    "phpmyadmin:latest"
+    "portainer/portainer-ce:latest"
+    "ghcr.io/xtls/xray-core:latest"
+    "teddysun/xray:latest"
+    "metacubex/mihomo:latest"
+    "gozargah/marzban:latest"
+  )
+
+  printf "%s\n" "${images[@]}" > "$META_DIR/docker_images_requested.txt"
+
+  for img in "${images[@]}"; do
+    log "Pull: $img"
+    if docker pull "$img"; then
+      :
+    else
+      warn "Pull failed for $img (maybe blocked/no access). ادامه می‌دهم."
+    fi
+  done
+
+  # Save what exists locally (pulled successfully)
+  log "Saving locally available images into tar chunks..."
+  local ts
+  ts="$(date +%Y%m%d-%H%M%S)"
+
+  # list images present that match requested repository names
+  local to_save=()
+  while IFS= read -r line; do
+    to_save+=("$line")
+  done < <(docker images --format '{{.Repository}}:{{.Tag}}' | grep -E '^(netdata/netdata|linuxserver/librespeed|networkstatic/iperf3|pihole/pihole|snowdreamtech/frps|nginx|mariadb|postgres|redis|phpmyadmin|portainer/portainer-ce|ghcr\.io/xtls/xray-core|teddysun/xray|metacubex/mihomo|gozargah/marzban):' || true)
+
+  if [[ "${#to_save[@]}" -eq 0 ]]; then
+    warn "No matching images found locally to save."
+    return 0
+  fi
+
+  # Save into one tar (you can split later if needed)
+  local tarpath="$IMAGES_DIR/core-images-$ts.tar"
+  log "docker save -> $tarpath"
+  run docker save -o "$tarpath" "${to_save[@]}"
+  run sha256sum "$tarpath" > "$tarpath.sha256"
+  log "Saved: $tarpath"
+}
+
+clone_repos() {
+  log "Cloning GitHub repos..."
+  local repos=(
+    "https://github.com/Musixal/Backhaul"
+    "https://github.com/zZedix/Smite"
+    "https://github.com/alireza0/x-ui"
+    "https://github.com/MHSanaei/3x-ui"
+  )
+  printf "%s\n" "${repos[@]}" > "$META_DIR/github_repos_requested.txt"
+
+  for url in "${repos[@]}"; do
+    local name
+    name="$(basename "$url" .git)"
+    local dest="$REPOS_DIR/$name"
+
+    if [[ -d "$dest/.git" ]]; then
+      log "Repo exists, pulling: $name"
+      (cd "$dest" && run git pull --ff-only) || warn "git pull failed for $name"
+    else
+      log "Cloning: $url -> $dest"
+      run git clone --depth 1 "$url" "$dest" || warn "git clone failed for $name"
+    fi
+  done
+}
+
+# If repos contain Docker compose/Dockerfile, try to build/pull and then save produced images.
+build_and_save_repo_images() {
+  log "Checking repos for Docker builds/compose..."
+  local ts
+  ts="$(date +%Y%m%d-%H%M%S)"
+
+  shopt -s nullglob
+  for repo in "$REPOS_DIR"/*; do
+    [[ -d "$repo" ]] || continue
+    local name
+    name="$(basename "$repo")"
+
+    local has_compose=""
+    local compose_file=""
+    if [[ -f "$repo/docker-compose.yml" ]]; then
+      has_compose="yes"; compose_file="$repo/docker-compose.yml"
+    elif [[ -f "$repo/compose.yml" ]]; then
+      has_compose="yes"; compose_file="$repo/compose.yml"
+    fi
+
+    local has_dockerfile=""
+    if [[ -f "$repo/Dockerfile" ]]; then
+      has_dockerfile="yes"
+    fi
+
+    if [[ -z "$has_compose" && -z "$has_dockerfile" ]]; then
+      continue
+    fi
+
+    log "Repo $name has Docker artifacts. Attempting build/pull..."
+    if [[ -n "$has_compose" ]]; then
+      (cd "$repo" && run docker compose -f "$compose_file" pull) || warn "compose pull failed for $name"
+      (cd "$repo" && run docker compose -f "$compose_file" build) || warn "compose build failed for $name"
+
+      # Collect image references from compose config (best-effort)
+      local images=()
+      while IFS= read -r img; do
+        images+=("$img")
+      done < <(cd "$repo" && docker compose -f "$compose_file" config 2>/dev/null | awk '/image:/ {print $2}' | sort -u || true)
+
+      if [[ "${#images[@]}" -gt 0 ]]; then
+        local tarpath="$IMAGES_DIR/${name}-images-$ts.tar"
+        log "Saving compose images for $name -> $tarpath"
+        # Save only those that exist locally
+        local present=()
+        for img in "${images[@]}"; do
+          if docker image inspect "$img" >/dev/null 2>&1; then
+            present+=("$img")
+          fi
+        done
+        if [[ "${#present[@]}" -gt 0 ]]; then
+          run docker save -o "$tarpath" "${present[@]}"
+          run sha256sum "$tarpath" > "$tarpath.sha256"
+        else
+          warn "No compose images present locally for $name"
+        fi
+      fi
+    fi
+
+    if [[ -n "$has_dockerfile" ]]; then
+      local tag="offline/${name}:$ts"
+      (cd "$repo" && run docker build -t "$tag" .) || warn "docker build failed for $name"
+      if docker image inspect "$tag" >/dev/null 2>&1; then
+        local tarpath="$IMAGES_DIR/${name}-dockerfile-$ts.tar"
+        log "Saving Dockerfile image for $name -> $tarpath"
+        run docker save -o "$tarpath" "$tag"
+        run sha256sum "$tarpath" > "$tarpath.sha256"
+      fi
+    fi
+  done
+  shopt -u nullglob
+}
+
+write_sample_compose() {
+  log "Writing sample compose to $COMPOSE_DIR/docker-compose.offline.yml"
+
+  cat > "$COMPOSE_DIR/docker-compose.offline.yml" <<'YML'
+version: '3.8'
+
+services:
+  netdata:
+    image: netdata/netdata:latest
+    container_name: netdata
+    restart: unless-stopped
+    ports:
+      - "19999:19999"
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - apparmor:unconfined
+    volumes:
+      - netdataconfig:/etc/netdata
+      - netdatalib:/var/lib/netdata
+      - netdatacache:/var/cache/netdata
+      - /etc/passwd:/host/etc/passwd:ro
+      - /etc/group:/host/etc/group:ro
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /etc/os-release:/host/etc/os-release:ro
+
+  librespeed:
+    image: linuxserver/librespeed:latest
+    container_name: librespeed
+    restart: unless-stopped
+    ports:
+      - "8081:80"
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Asia/Tehran
+
+  iperf3:
+    image: networkstatic/iperf3:latest
+    container_name: iperf3
+    restart: unless-stopped
+    ports:
+      - "5201:5201/tcp"
+      - "5201:5201/udp"
+    command: -s
+
+  pihole:
+    image: pihole/pihole:latest
+    container_name: pihole
+    restart: unless-stopped
+    ports:
+      - "53:53/tcp"
+      - "53:53/udp"
+      - "8053:80/tcp"
+    environment:
+      - TZ=Asia/Tehran
+      - WEBPASSWORD=change-me
+    volumes:
+      - ./pihole/etc-pihole:/etc/pihole
+      - ./pihole/etc-dnsmasq.d:/etc/dnsmasq.d
+
+  frps:
+    image: snowdreamtech/frps:latest
+    container_name: frps
+    restart: unless-stopped
+    ports:
+      - "7000:7000"
+      - "7500:7500"
+    volumes:
+      - ./frps/frps.ini:/etc/frp/frps.ini
+
+  nginx:
+    image: nginx:alpine
+    container_name: nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/html:/usr/share/nginx/html
+      - ./nginx/conf.d:/etc/nginx/conf.d
+
+  mariadb:
+    image: mariadb:10.11
+    container_name: mariadb
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: change-me
+      MYSQL_DATABASE: appdb
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./mariadb/data:/var/lib/mysql
+      - ./mariadb/init:/docker-entrypoint-initdb.d
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: change-me
+      POSTGRES_DB: appdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./postgres/data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:alpine
+    container_name: redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./redis/data:/data
+
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: phpmyadmin
+    restart: unless-stopped
+    ports:
+      - "8082:80"
+    environment:
+      - PMA_HOST=mariadb
+
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: portainer
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainerdata:/data
+
+volumes:
+  netdataconfig:
+  netdatalib:
+  netdatacache:
+  portainerdata:
+YML
+}
+
+print_next_steps() {
+  cat <<EOF
+
+========================================
+Offline kit آماده شد در:
+  $KIT_ROOT
+
+مهم‌ترین خروجی‌ها:
+  - Docker image tar files:
+      $IMAGES_DIR/*.tar
+  - Git repos:
+      $REPOS_DIR/
+  - Sample compose:
+      $COMPOSE_DIR/docker-compose.offline.yml
+  - Logs:
+      $LOG_DIR/offline-kit.log
+
+برای استفاده آفلاین (وقتی اینترنت قطع بود):
+  1) ایمیج‌ها را لود کن:
+     docker load -i $IMAGES_DIR/core-images-*.tar
+
+  2) سرویس‌های نمونه را بالا بیاور:
+     cd $COMPOSE_DIR
+     docker compose -f docker-compose.offline.yml up -d
+
+نکته: اگر می‌خواهی این کیت را به یک سرور دیگر منتقل کنی:
+  - کل پوشه $KIT_ROOT را rsync کن.
+========================================
+EOF
+}
+
+main() {
+  require_root
+  detect_ubuntu
+  apt_prep
+  install_tools
+  install_docker
+  write_sample_compose
+  clone_repos
+  pull_and_save_images
+  build_and_save_repo_images
+  print_next_steps
+  log "Done."
+}
+
+main "$@"
+
+EOF
+
+# 2) دادن مجوز اجرا (به‌جای 777، حالت امن‌تر)
+chmod +x IranServerInstallation.sh
+
+# 3) اجرا با sudo
+sudo ./IranServerInstallation.sh
