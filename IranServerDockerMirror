@@ -1,0 +1,139 @@
+bash -lc '
+set -euo pipefail
+
+# ------------------ 20 candidates (edit freely) ------------------
+CANDIDATES=(
+  # Iran (known to work often)
+  "https://docker.manageit.ir"
+  "https://registry.docker.ir"
+
+  # CN mirrors/proxies (some work, some are unstable; script will filter)
+  "https://docker.m.daocloud.io"
+  "https://dockerproxy.com"
+  "https://hub-mirror.c.163.com"
+  "https://mirror.ccs.tencentyun.com"
+  "https://dockerhub.azk8s.cn"
+  "https://registry.docker-cn.com"
+
+  # Other generic proxies (may fail; script will filter)
+  "https://mirror.gcr.io"
+  "https://ghcr.io"
+  "https://quay.io"
+  "https://registry.k8s.io"
+  "https://k8s.gcr.io"
+  "https://cr.l5d.io"
+
+  # Controls / usually blocked from Iran (kept to prove filtering)
+  "https://registry-1.docker.io"
+  "https://docker.io"
+
+  # placeholders (replace with your own later)
+  # "https://your-mirror-1.example"
+  # "https://your-mirror-2.example"
+)
+
+# ------------------ deps ------------------
+if ! command -v jq >/dev/null 2>&1; then
+  apt-get update -y >/dev/null
+  apt-get install -y jq >/dev/null
+fi
+
+# ------------------ probe functions ------------------
+# 1) /v2 liveness: 200 or 401
+check_v2 () {
+  local base="${1%/}"
+  local code
+  code="$(curl -sS -L --max-time 4 -o /dev/null -w "%{http_code}" "$base/v2/" 2>/dev/null || echo 000)"
+  [[ "$code" == "200" || "$code" == "401" ]]
+}
+
+# 2) dockerhub-path sanity: hello-world manifest should NOT be 403/404/000
+# Accept: 200, 401, 301/302/307/308
+# Reject: 403/404/000
+check_manifest () {
+  local base="${1%/}"
+  local code t
+  read -r code t < <(
+    curl -sS -I -L --max-time 6 -o /dev/null -w "%{http_code} %{time_total}" \
+      -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
+      "$base/v2/library/hello-world/manifests/latest" 2>/dev/null \
+    || echo "000 999"
+  )
+
+  [[ "$code" != "403" && "$code" != "404" && "$code" != "000" ]] || return 1
+  echo "$t $1 (manifest=$code)"
+}
+
+# ------------------ run probes ------------------
+echo "1) /v2 liveness filter..."
+alive=()
+for m in "${CANDIDATES[@]}"; do
+  if check_v2 "$m"; then
+    echo "OK   $m"
+    alive+=("$m")
+  else
+    echo "SKIP $m"
+  fi
+done
+
+[[ "${#alive[@]}" -gt 0 ]] || { echo "No mirrors passed /v2/ check."; exit 1; }
+
+echo
+echo "2) Manifest sanity + latency ranking..."
+tmp="$(mktemp)"
+for m in "${alive[@]}"; do
+  if out="$(check_manifest "$m" 2>/dev/null)"; then
+    echo "$out" | tee -a "$tmp"
+  else
+    echo "FAIL $m"
+  fi
+done
+
+[[ -s "$tmp" ]] || { echo "No usable mirrors found (all failed manifest check)."; exit 1; }
+
+ranked="$(sort -n "$tmp")"
+echo
+echo "Ranked (lower is better):"
+echo "$ranked"
+
+m1="$(echo "$ranked" | awk "NR==1{print \$2}")"
+m2="$(echo "$ranked" | awk "NR==2{print \$2}")"
+
+mirrors=("$m1")
+[[ -n "${m2:-}" ]] && mirrors+=("$m2")
+
+echo
+echo "✅ Selected top 2:"
+printf " - %s\n" "${mirrors[@]}"
+
+# ------------------ write daemon.json safely ------------------
+mkdir -p /etc/docker
+cp -a /etc/docker/daemon.json "/etc/docker/daemon.json.bak.$(date +%F_%H%M%S)" 2>/dev/null || true
+
+jq -n \
+  --argjson dns "[\"1.1.1.1\",\"8.8.8.8\"]" \
+  --argjson mirrors "$(printf "%s\n" "${mirrors[@]}" | jq -R . | jq -s .)" \
+  "{ \"registry-mirrors\": \$mirrors, \"dns\": \$dns }" \
+  | tee /etc/docker/daemon.json >/dev/null
+
+jq . /etc/docker/daemon.json >/dev/null
+
+# Restart once (avoid start-limit-hit)
+systemctl reset-failed docker docker.socket >/dev/null 2>&1 || true
+systemctl restart docker.socket
+systemctl restart docker
+
+echo
+echo "--- /etc/docker/daemon.json ---"
+cat /etc/docker/daemon.json
+
+echo
+echo "--- docker info mirrors ---"
+docker info | sed -n "/Registry Mirrors:/,/Live Restore Enabled/p"
+
+echo
+echo "3) Quick real pull test:"
+docker pull hello-world:latest >/dev/null
+docker run --rm hello-world >/dev/null
+echo "✅ Pull/run OK"
+'
