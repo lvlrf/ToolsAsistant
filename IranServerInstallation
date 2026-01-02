@@ -181,9 +181,6 @@ clone_repos() {
   log "Cloning GitHub repos..."
   local repos=(
     "https://github.com/Musixal/Backhaul"
-    "https://github.com/zZedix/Smite"
-    "https://github.com/alireza0/x-ui"
-    "https://github.com/MHSanaei/3x-ui"
   )
   printf "%s\n" "${repos[@]}" > "$META_DIR/github_repos_requested.txt"
 
