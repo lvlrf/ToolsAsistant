@@ -1,0 +1,52 @@
+{
+  "binary_config": {
+    "standard": {
+      "path": "/root",
+      "filename": "backhaul"
+    },
+    "premium": {
+      "path": "/root/backhaul-core",
+      "filename": "backhaul_premium"
+    }
+  },
+
+  "settings": {
+    "tunnel_port_start": 100,
+    "web_port_start": 800,
+    "iperf_iran_port_start": 5001,
+    "iperf_kharej_port": 5201
+  },
+
+  "iran_servers": [
+    {"name": "tehran-main", "ip": "1.2.3.4"},
+    {"name": "shiraz-backup", "ip": "5.6.7.8"},
+    {"name": "mashhad-dc", "ip": "9.10.11.12"}
+  ],
+
+  "kharej_servers": [
+    {"name": "germany-hetzner", "ip": "20.30.40.50"},
+    {"name": "france-ovh", "ip": "21.31.41.51"},
+    {"name": "netherlands-vultr", "ip": "22.32.42.52"}
+  ],
+
+  "connections": [
+    {
+      "iran": "tehran-main",
+      "kharej": "germany-hetzner",
+      "standard_transports": ["tcp", "tcpmux", "ws"],
+      "premium_transports": ["udp", "wsmux", "utcpmux"]
+    },
+    {
+      "iran": "tehran-main",
+      "kharej": "france-ovh",
+      "standard_transports": ["tcp"],
+      "premium_transports": ["tcpmux", "uwsmux"]
+    },
+    {
+      "iran": "shiraz-backup",
+      "kharej": "germany-hetzner",
+      "standard_transports": ["ws", "wsmux"],
+      "premium_transports": ["tcp", "udp"]
+    }
+  ]
+}

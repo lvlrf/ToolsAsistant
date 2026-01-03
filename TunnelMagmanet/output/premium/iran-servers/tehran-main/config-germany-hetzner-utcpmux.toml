@@ -1,0 +1,20 @@
+[server]
+bind_addr = "0.0.0.0:105"
+transport = "utcpmux"
+token = "07b0fa76cd754d700d3944d68f5ce833"
+keepalive_period = 75
+nodelay = true
+channel_size = 2048
+heartbeat = 40
+mux_con = 8
+mux_version = 2
+mux_framesize = 32768
+mux_recievebuffer = 4194304
+mux_streambuffer = 2000000
+sniffer = true
+web_port = 805
+sniffer_log = "/root/backhaul-105.json"
+log_level = "info"
+proxy_protocol = false
+
+ports = []
