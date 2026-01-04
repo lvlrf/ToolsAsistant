@@ -1,0 +1,14 @@
+[client]
+remote_addr = "1.2.3.4:103"
+transport = "udp"
+token = "07b0fa76cd754d700d3944d68f5ce833"
+connection_pool = 8
+aggressive_pool = false
+retry_interval = 3
+dial_timeout = 10
+sniffer = true
+web_port = 803
+sniffer_log = "/root/backhaul-103.json"
+log_level = "info"
+
+ports = ["5004=127.0.0.1:5201"]

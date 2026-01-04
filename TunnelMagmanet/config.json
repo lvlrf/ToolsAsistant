@@ -1,12 +1,12 @@
 {
   "binary_config": {
     "standard": {
-      "path": "/root",
-      "filename": "backhaul"
+      "path": "/var/lib/@lvlRF-Tunnel/Standard",
+      "filename": "@lvlRF-Tunnel"
     },
     "premium": {
-      "path": "/root/backhaul-core",
-      "filename": "backhaul_premium"
+      "path": "/var/lib/@lvlRF-Tunnel/Premium",
+      "filename": "@lvlRF-Tunnel"
     }
   },
 
@@ -18,35 +18,19 @@
   },
 
   "iran_servers": [
-    {"name": "tehran-main", "ip": "1.2.3.4"},
-    {"name": "shiraz-backup", "ip": "5.6.7.8"},
-    {"name": "mashhad-dc", "ip": "9.10.11.12"}
+    {"name": "Doris-Respina", "ip": "87.107.185.76"}
   ],
 
   "kharej_servers": [
-    {"name": "germany-hetzner", "ip": "20.30.40.50"},
-    {"name": "france-ovh", "ip": "21.31.41.51"},
-    {"name": "netherlands-vultr", "ip": "22.32.42.52"}
+    {"name": "Netherlands-NForce", "ip": "141.11.250.146"}
   ],
 
   "connections": [
     {
-      "iran": "tehran-main",
-      "kharej": "germany-hetzner",
-      "standard_transports": ["tcp", "tcpmux", "ws"],
-      "premium_transports": ["udp", "wsmux", "utcpmux"]
-    },
-    {
-      "iran": "tehran-main",
-      "kharej": "france-ovh",
-      "standard_transports": ["tcp"],
-      "premium_transports": ["tcpmux", "uwsmux"]
-    },
-    {
-      "iran": "shiraz-backup",
-      "kharej": "germany-hetzner",
-      "standard_transports": ["ws", "wsmux"],
-      "premium_transports": ["tcp", "udp"]
+      "iran": "Doris-Respina",
+      "kharej": "Netherlands-NForce",
+      "standard_transports": ["tcp", "tcpmux", "ws", "wsmux", "udp"],
+      "premium_transports": ["tcp", "tcpmux", "utcpmux", "udp", "ws", "wsmux", "uwsmux", "tcptun", "faketcptun"]
     }
   ]
 }

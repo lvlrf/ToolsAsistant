@@ -278,19 +278,12 @@ ports = ["{iperf_port}=127.0.0.1:{iperf_kharej_port}"]
                              config_path: str, binary_path: str, tunnel_port: int) -> str:
         """Generate systemd service file content"""
         
-        # Extract directory and filename from binary_path
-        from pathlib import Path
-        binary_path_obj = Path(binary_path)
-        working_dir = str(binary_path_obj.parent)
-        binary_filename = binary_path_obj.name
-        
-        # Extract config filename from config_path
-        config_filename = Path(config_path).name
-        
         if server_type == "iran":
             desc = f"Backhaul Iran {server_name} -> {kharej_name} ({transport.upper()}) Port {tunnel_port}"
+            service_name = f"backhaul-{server_name}-{kharej_name}-{transport}"
         else:
             desc = f"Backhaul Kharej {kharej_name} <- {server_name} ({transport.upper()}) Port {tunnel_port}"
+            service_name = f"backhaul-{kharej_name}-{server_name}-{transport}"
         
         return f"""[Unit]
 Description={desc}
@@ -298,8 +291,7 @@ After=network.target
 
 [Service]
 Type=simple
-WorkingDirectory={working_dir}
-ExecStart={working_dir}/./{binary_filename} -c {config_filename}
+ExecStart={binary_path} -c {config_path}
 Restart=always
 RestartSec=3
 LimitNOFILE=1048576
@@ -312,22 +304,11 @@ WantedBy=multi-user.target
                                 version: str, services: List[Dict]) -> str:
         """Generate installation script for copy-paste in terminal"""
         
-        binary_path = self.binary_details[version]["path"]
-        binary_filename = self.binary_details[version]["filename"]
-        
         script = f"""#!/bin/bash
 # Backhaul {version.upper()} - {server_type.upper()} Server: {server_name}
 # Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 
-echo "Installing {binary_filename} {version.upper()} services for {server_name}..."
-echo ""
-
-# Extract binary from compressed file
-echo "Extracting binary: {binary_filename}.tar.gz"
-cd {binary_path}
-tar -xzf {binary_filename}.tar.gz
-chmod +x {binary_filename}
-echo ""
+echo "Installing Backhaul services for {server_name}..."
 
 """
         
@@ -358,7 +339,7 @@ systemctl start {service_name}.service
 """
         
         script += """
-echo "[OK] All services installed and started!"
+echo "✅ All services installed and started!"
 echo ""
 echo "Check status with:"
 """
@@ -373,16 +354,16 @@ echo "Check status with:"
     def generate_all_configs(self):
         """Main function to generate all configurations"""
         
-        print("Backhaul Configuration Generator")
+        print("🚀 Backhaul Configuration Generator")
         print("=" * 50)
         print(f"Token: {self.state['token']}")
         print("=" * 50)
         print()
         
-        # Create output directories with new structure
-        for location in ["Iran", "Kharej"]:
-            for version in ["Standard", "Premium"]:
-                (self.output_dir / location / version).mkdir(parents=True, exist_ok=True)
+        # Create output directories
+        for version in ["standard", "premium"]:
+            for server_type in ["iran-servers", "kharej-servers"]:
+                (self.output_dir / version / server_type).mkdir(parents=True, exist_ok=True)
         
         # Port mapping tracking
         port_mappings = []
@@ -397,7 +378,7 @@ echo "Check status with:"
             kharej = next((s for s in self.config["kharej_servers"] if s["name"] == kharej_name), None)
             
             if not iran or not kharej:
-                print(f"[WARNING] Skipping {iran_name} -> {kharej_name}: Server not found")
+                print(f"⚠️  Skipping {iran_name} -> {kharej_name}: Server not found")
                 continue
             
             # Process Standard version
@@ -413,9 +394,9 @@ echo "Check status with:"
         self.save_state()
         
         print()
-        print("[OK] All configurations generated successfully!")
-        print(f"Output directory: {self.output_dir.absolute()}")
-        print(f"State saved to: state.json")
+        print("✅ All configurations generated successfully!")
+        print(f"📁 Output directory: {self.output_dir.absolute()}")
+        print(f"💾 State saved to: state.json")
         print()
     
     def _process_version(self, version: str, iran: Dict, kharej: Dict, 
@@ -427,16 +408,11 @@ echo "Check status with:"
         
         iran_name = iran["name"]
         kharej_name = kharej["name"]
+        binary_path = self.binary_paths[version]
         
-        # Get binary details
-        binary_path = self.binary_details[version]["path"]
-        binary_filename = self.binary_details[version]["filename"]
-        binary_full_path = self.binary_details[version]["full_path"]
-        
-        # New directory structure: Iran/Standard or Kharej/Premium
-        version_capitalized = version.capitalize()
-        iran_dir = self.output_dir / "Iran" / version_capitalized / iran_name
-        kharej_dir = self.output_dir / "Kharej" / version_capitalized / kharej_name
+        # Create server directories
+        iran_dir = self.output_dir / version / "iran-servers" / iran_name
+        kharej_dir = self.output_dir / version / "kharej-servers" / kharej_name
         iran_dir.mkdir(parents=True, exist_ok=True)
         kharej_dir.mkdir(parents=True, exist_ok=True)
         
@@ -446,7 +422,7 @@ echo "Check status with:"
         for transport in transports:
             # Validate transport for version
             if transport not in self.transports[version]:
-                print(f"[WARNING] Skipping {transport} for {version}: Not supported")
+                print(f"⚠️  Skipping {transport} for {version}: Not supported")
                 continue
             
             # Allocate ports
@@ -469,28 +445,24 @@ echo "Check status with:"
             iran_config_path = iran_dir / config_filename
             kharej_config_path = kharej_dir / f"config-{iran_name}-{transport}.toml"
             
-            with open(iran_config_path, 'w', encoding='utf-8') as f:
+            with open(iran_config_path, 'w') as f:
                 f.write(server_config)
             
-            with open(kharej_config_path, 'w', encoding='utf-8') as f:
+            with open(kharej_config_path, 'w') as f:
                 f.write(client_config)
             
-            # Generate service files with new naming pattern: {filename}-{version}-{iran}-{kharej}-{transport}
-            iran_service_name = f"{binary_filename}-{version_capitalized}-{iran_name}-{kharej_name}-{transport}"
-            kharej_service_name = f"{binary_filename}-{version_capitalized}-{kharej_name}-{iran_name}-{transport}"
-            
-            # Config path is same as binary path
-            iran_config_full_path = f"{binary_path}/{config_filename}"
-            kharej_config_full_path = f"{binary_path}/config-{iran_name}-{transport}.toml"
+            # Generate service files
+            iran_service_name = f"backhaul-{iran_name}-{kharej_name}-{transport}"
+            kharej_service_name = f"backhaul-{kharej_name}-{iran_name}-{transport}"
             
             iran_service = self.generate_service_file(
                 "iran", iran_name, kharej_name, transport, version,
-                iran_config_full_path, binary_full_path, tunnel_port
+                f"/root/{config_filename}", binary_path, tunnel_port
             )
             
             kharej_service = self.generate_service_file(
                 "kharej", kharej_name, iran_name, transport, version,
-                kharej_config_full_path, binary_full_path, tunnel_port
+                f"/root/config-{iran_name}-{transport}.toml", binary_path, tunnel_port
             )
             
             iran_services.append({
@@ -515,18 +487,18 @@ echo "Check status with:"
                 "subnet": subnet
             })
             
-            print(f"[OK] Generated {version.upper()}: {iran_name} -> {kharej_name} ({transport}) Port {tunnel_port}")
+            print(f"✓ Generated {version.upper()}: {iran_name} -> {kharej_name} ({transport}) Port {tunnel_port}")
         
         # Generate install scripts
         if iran_services:
             iran_install = self.generate_install_script("iran", iran_name, version, iran_services)
-            with open(iran_dir / "install-services.sh", 'w', encoding='utf-8', newline='\n') as f:
+            with open(iran_dir / "install-services.sh", 'w') as f:
                 f.write(iran_install)
             os.chmod(iran_dir / "install-services.sh", 0o755)
         
         if kharej_services:
             kharej_install = self.generate_install_script("kharej", kharej_name, version, kharej_services)
-            with open(kharej_dir / "install-services.sh", 'w', encoding='utf-8', newline='\n') as f:
+            with open(kharej_dir / "install-services.sh", 'w') as f:
                 f.write(kharej_install)
             os.chmod(kharej_dir / "install-services.sh", 0o755)
     
@@ -608,7 +580,7 @@ Access the web sniffer interface at:
                 doc += f"- {m['transport']}: http://{kharej_ip}:{m['web_port']}\n"
         
         # Save document
-        with open(self.output_dir / "port-mapping.md", 'w', encoding='utf-8') as f:
+        with open(self.output_dir / "port-mapping.md", 'w') as f:
             f.write(doc)
 
 
@@ -617,10 +589,10 @@ def main():
         generator = BackhaulGenerator("config.json")
         generator.generate_all_configs()
     except FileNotFoundError as e:
-        print(f"[ERROR] {e}")
-        print("\n[INFO] Please create a config.json file first!")
+        print(f"❌ Error: {e}")
+        print("\n💡 Please create a config.json file first!")
     except Exception as e:
-        print(f"[ERROR] {e}")
+        print(f"❌ Error: {e}")
         import traceback
         traceback.print_exc()
 

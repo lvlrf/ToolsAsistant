@@ -1,0 +1,12 @@
+[server]
+bind_addr = "0.0.0.0:103"
+transport = "udp"
+token = "07b0fa76cd754d700d3944d68f5ce833"
+channel_size = 2048
+heartbeat = 40
+sniffer = true
+web_port = 803
+sniffer_log = "/root/backhaul-103.json"
+log_level = "info"
+
+ports = []

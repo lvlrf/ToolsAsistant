@@ -1,0 +1,14 @@
+[server]
+bind_addr = "0.0.0.0:102"
+transport = "ws"
+token = "07b0fa76cd754d700d3944d68f5ce833"
+keepalive_period = 75
+nodelay = true
+channel_size = 2048
+heartbeat = 40
+sniffer = true
+web_port = 802
+sniffer_log = "/root/backhaul-102.json"
+log_level = "info"
+
+ports = []
