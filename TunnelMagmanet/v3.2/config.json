@@ -1,0 +1,36 @@
+{
+  "binary_config": {
+    "standard": {
+      "path": "/var/lib/@lvlRF-Tunnel/Standard",
+      "filename": "@lvlRF-Tunnel"
+    },
+    "premium": {
+      "path": "/var/lib/@lvlRF-Tunnel/Premium",
+      "filename": "@lvlRF-Tunnel"
+    }
+  },
+
+  "settings": {
+    "tunnel_port_start": 100,
+    "web_port_start": 800,
+    "iperf_iran_port_start": 5001,
+    "iperf_kharej_port": 5201
+  },
+
+  "iran_servers": [
+    {"name": "Doris-Respina", "ip": "87.107.185.76"}
+  ],
+
+  "kharej_servers": [
+    {"name": "Netherlands-NForce", "ip": "141.11.250.146"}
+  ],
+
+  "connections": [
+    {
+      "iran": "Doris-Respina",
+      "kharej": "Netherlands-NForce",
+      "standard_transports": ["tcp", "tcpmux", "ws", "wsmux", "udp"],
+      "premium_transports": ["tcp", "tcpmux", "utcpmux", "udp", "ws", "wsmux", "uwsmux", "tcptun", "faketcptun"]
+    }
+  ]
+}

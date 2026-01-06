@@ -1,0 +1,10 @@
+{
+  "last_tunnel_port": 113,
+  "last_web_port": 813,
+  "last_iperf_port": 5014,
+  "last_tun_subnet": 20,
+  "token": "b7cbe182cdab046c037ab7c212080db6",
+  "generated_configs": [],
+  "created_at": "2026-01-03T18:47:06.114019",
+  "updated_at": "2026-01-03T18:47:06.126017"
+}
