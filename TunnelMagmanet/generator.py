@@ -367,7 +367,7 @@ mss = 0
             
             # Get transports
             transports_config = conn.get("transports", [])
-            if transports_config == "all":
+            if transports_config == "all" or transports_config == ["all"]:
                 transports_list = list(self.transports.keys())
             else:
                 transports_list = transports_config
