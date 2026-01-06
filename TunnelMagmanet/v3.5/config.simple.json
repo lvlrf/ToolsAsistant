@@ -1,0 +1,41 @@
+{
+  "binary_config": {
+    "premium": {
+      "path": "/root/backhaul-core",
+      "filename": "backhaul_premium"
+    }
+  },
+
+  "settings": {
+    "tunnel_port_start": 100,
+    "web_port_start": 800,
+    "iperf_iran_port_start": 5001,
+    "iperf_kharej_port": 5201,
+    "excluded_ports": [22, 80, 443, 8080],
+    "subnet_start": "10.10.10.0/24",
+    "profiles": ["balanced"],
+    "token_per_connection": true
+  },
+
+  "iran_servers": [
+    {
+      "name": "Asiatech-Unlimite34",
+      "ip": "YOUR_IRAN_IP"
+    }
+  ],
+
+  "kharej_servers": [
+    {
+      "name": "Marzban-DE-Hetzner",
+      "ip": "YOUR_KHAREJ_IP"
+    }
+  ],
+
+  "connections": [
+    {
+      "iran": "Asiatech-Unlimite34",
+      "kharej": "Marzban-DE-Hetzner",
+      "transports": "all"
+    }
+  ]
+}

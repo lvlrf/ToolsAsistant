@@ -1,0 +1,175 @@
+# 1) ساخت فایل 
+cat > IranServerDockerMirror.sh <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+# IranServerDockerMirror (merge-safe, no DNS changes)
+# - Probes candidate Docker registry mirrors
+# - Chooses the best 2 based on /v2 liveness + hello-world manifest latency
+# - Updates ONLY "registry-mirrors" in /etc/docker/daemon.json (keeps other keys)
+# - Forces a fresh pull test (removes local hello-world first)
+
+# ------------------ candidates ------------------
+CANDIDATES=(
+  # Iran / region-friendly
+  "https://focker.ir"
+  "https://docker.arvancloud.ir"
+  "https://docker.mobinhost.com"
+  "https://hub.hamdocker.ir"
+  "https://docker.manageit.ir"
+  "https://registry.docker.ir"
+
+  # CN / global fallbacks (script will filter)
+  "https://docker.m.daocloud.io"
+  "https://dockerproxy.com"
+  "https://hub-mirror.c.163.com"
+  "https://mirror.ccs.tencentyun.com"
+  "https://dockerhub.azk8s.cn"
+  "https://registry.docker-cn.com"
+  "https://mirror.gcr.io"
+  "https://registry-1.docker.io"
+)
+
+# ------------------ deps ------------------
+need_cmd() { command -v "$1" >/dev/null 2>&1; }
+
+if ! need_cmd curl; then
+  echo "[!] curl is required." >&2
+  exit 1
+fi
+
+if ! need_cmd jq; then
+  apt-get update -y >/dev/null
+  apt-get install -y jq >/dev/null
+fi
+
+if ! need_cmd docker; then
+  echo "[!] docker is required." >&2
+  exit 1
+fi
+
+# ------------------ probe functions ------------------
+# 1) /v2 liveness: accept 200 or 401
+check_v2() {
+  local base="${1%/}"
+  local code
+  code="$(curl -sS -L --max-time 4 -o /dev/null -w "%{http_code}" "$base/v2/" 2>/dev/null || echo 000)"
+  [[ "$code" == "200" || "$code" == "401" ]]
+}
+
+# 2) hello-world manifest latency (reject 403/404/000)
+check_manifest() {
+  local base="${1%/}"
+  local code t
+  read -r code t < <(
+    curl -sS -I -L --max-time 7 -o /dev/null -w "%{http_code} %{time_total}" \
+      -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
+      "$base/v2/library/hello-world/manifests/latest" 2>/dev/null \
+    || echo "000 999"
+  )
+
+  [[ "$code" != "403" && "$code" != "404" && "$code" != "000" ]] || return 1
+  printf "%s %s (manifest=%s)\n" "$t" "$base" "$code"
+}
+
+# ------------------ run probes ------------------
+echo "1) /v2 liveness filter..."
+alive=()
+for m in "${CANDIDATES[@]}"; do
+  if check_v2 "$m"; then
+    echo "OK   $m"
+    alive+=("$m")
+  else
+    echo "SKIP $m"
+  fi
+done
+
+if [[ "${#alive[@]}" -eq 0 ]]; then
+  echo "[!] No mirrors passed /v2/ check." >&2
+  exit 1
+fi
+
+echo
+echo "2) Manifest sanity + latency ranking..."
+tmp="$(mktemp)"
+for m in "${alive[@]}"; do
+  if out="$(check_manifest "$m" 2>/dev/null)"; then
+    echo "$out" | tee -a "$tmp" >/dev/null
+    echo "$out"
+  else
+    echo "FAIL $m"
+  fi
+done
+
+if [[ ! -s "$tmp" ]]; then
+  echo "[!] No usable mirrors found (all failed manifest check)." >&2
+  exit 1
+fi
+
+ranked="$(sort -n "$tmp")"
+echo
+echo "Ranked (lower is better):"
+echo "$ranked"
+
+m1="$(echo "$ranked" | awk 'NR==1{print $2}')"
+m2="$(echo "$ranked" | awk 'NR==2{print $2}')"
+
+mirrors=("$m1")
+[[ -n "${m2:-}" ]] && mirrors+=("$m2")
+
+echo
+echo "Selected top 2:"
+printf " - %s\n" "${mirrors[@]}"
+
+# ------------------ write daemon.json safely (merge; do NOT touch DNS) ------------------
+mkdir -p /etc/docker
+
+ts="$(date +%F_%H%M%S)"
+if [[ -f /etc/docker/daemon.json ]]; then
+  cp -a /etc/docker/daemon.json "/etc/docker/daemon.json.bak.$ts" 2>/dev/null || true
+fi
+
+mirrors_json="$(printf "%s\n" "${mirrors[@]}" | jq -R . | jq -s .)"
+
+existing_json="{}"
+if [[ -s /etc/docker/daemon.json ]]; then
+  existing_json="$(cat /etc/docker/daemon.json)"
+fi
+
+merged="$(jq --argjson mirrors "$mirrors_json" '
+  if type != "object" then {} else . end
+  | .["registry-mirrors"] = $mirrors
+' <<<"$existing_json")"
+
+echo "$merged" | tee /etc/docker/daemon.json >/dev/null
+jq . /etc/docker/daemon.json >/dev/null
+
+systemctl reset-failed docker docker.socket >/dev/null 2>&1 || true
+systemctl restart docker
+
+echo
+echo "--- /etc/docker/daemon.json ---"
+cat /etc/docker/daemon.json
+
+echo
+echo "--- docker info mirrors ---"
+docker info 2>/dev/null | sed -n '/Registry Mirrors:/,/Live Restore Enabled/p' || true
+
+# ------------------ forced fresh pull test ------------------
+echo
+echo "3) Quick real pull test (forced network pull):"
+docker image rm -f hello-world:latest >/dev/null 2>&1 || true
+
+docker pull hello-world:latest >/dev/null
+
+docker run --rm hello-world >/dev/null
+
+echo "OK: fresh pull/run succeeded"
+
+EOF
+
+# 2) دادن مجوز اجرا (به‌جای 777، حالت امن‌تر)
+chmod +x IranServerDockerMirror.sh
+
+# 3) اجرا با sudo
+sudo ./IranServerDockerMirror.sh

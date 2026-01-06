@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Backhaul Premium Bulk Config Generator
+Backhaul Premium Bulk Config Generator - Interactive Version
 Generates configurations for all transport types with multiple profiles
 """
 
@@ -106,6 +106,33 @@ class BackhaulBulkGenerator:
         self.state["updated_at"] = datetime.now().isoformat()
         with open("state.json", 'w', encoding='utf-8') as f:
             json.dump(self.state, f, indent=2, ensure_ascii=False)
+    
+    def view_state(self):
+        """Display current state"""
+        print()
+        print("=" * 60)
+        print("Current State Information")
+        print("=" * 60)
+        print()
+        
+        if not Path("state.json").exists():
+            print("[INFO] No state file found. Run generator first.")
+            return
+        
+        print(f"Last Tunnel Port:  {self.state['last_tunnel_port']}")
+        print(f"Last Web Port:     {self.state['last_web_port']}")
+        print(f"Last iperf Port:   {self.state['last_iperf_port']}")
+        print(f"Last TUN Subnet:   10.10.{self.state['last_tun_subnet']}.0/24")
+        print()
+        print(f"Total Connections: {len(self.state['tokens'])}")
+        print(f"Total Configs:     {len(self.state['generated_configs'])}")
+        print()
+        
+        if self.state.get('tokens'):
+            print("Tokens:")
+            for conn, token in self.state['tokens'].items():
+                print(f"  {conn}: {token}")
+            print()
     
     def generate_token(self) -> str:
         """Generate a random 32-character hex token"""
@@ -345,8 +372,6 @@ mss = 0
         # Get selected profiles
         selected_profiles = self.config.get("settings", {}).get("profiles", ["balanced"])
         
-        # Port mapping tracking
-        port_mappings = []
         total_configs = 0
         
         # Process each connection
@@ -439,8 +464,8 @@ mss = 0
                         
                         # Service names
                         service_suffix = config_suffix
-                        iran_service_name = f"backhaul-iran{tunnel_port}{service_suffix}"
-                        kharej_service_name = f"backhaul-kharej{tunnel_port}{service_suffix}"
+                        iran_service_name = f"@lvlRF-Tunnel-iran{tunnel_port}{service_suffix}"
+                        kharej_service_name = f"@lvlRF-Tunnel-kharej{tunnel_port}{service_suffix}"
                         
                         # Generate service files
                         iran_service = self.generate_service_file(
@@ -502,6 +527,8 @@ mss = 0
         print(f"Output directory: {self.output_dir.absolute()}")
         print(f"State saved to: state.json")
         print("=" * 60)
+        
+        return total_configs
     
     def generate_service_file(self, server_type: str, server_name: str,
                              remote_name: str, config_filename: str,
@@ -629,12 +656,15 @@ echo "[OK] All services restarted!"
 
 echo "WARNING: This will remove all Backhaul services and optionally config files!"
 echo ""
-read -p "Are you sure? (yes/no): " confirm
 
-if [ "$confirm" != "yes" ]; then
-    echo "Cancelled."
-    exit 0
-fi
+while true; do
+    read -p "Are you sure? (yes/no): " confirm
+    case $confirm in
+        yes) break ;;
+        no) echo "Cancelled."; exit 0 ;;
+        *) echo "Please enter 'yes' or 'no'." ;;
+    esac
+done
 
 echo ""
 echo "Stopping and removing services..."
@@ -654,19 +684,22 @@ echo "[OK] Removed {service_name}"
 systemctl daemon-reload
 
 echo ""
-read -p "Do you want to remove config files as well? (yes/no): " remove_configs
 
-if [ "$remove_configs" == "yes" ]; then
-"""
-        
-        for svc in services:
-            # Extract config filename from service content
-            service_name = svc["service_name"]
-            # Assuming pattern: iran{port}-{transport}-{profile}.toml
-            remove_script += f"    # Remove configs for {service_name}\n"
-        
-        remove_script += f"""    echo "[OK] Config files would be removed here"
-fi
+while true; do
+    read -p "Do you want to remove config files as well? (yes/no): " remove_configs
+    case $remove_configs in
+        yes)
+            echo "[INFO] Config files would be removed here"
+            break
+            ;;
+        no)
+            break
+            ;;
+        *)
+            echo "Please enter 'yes' or 'no'."
+            ;;
+    esac
+done
 
 echo ""
 echo "[OK] All services removed!"
@@ -685,13 +718,121 @@ echo "[OK] All services removed!"
             with open(script_path, 'w', encoding='utf-8', newline='\n') as f:
                 f.write(script_content)
             os.chmod(script_path, 0o755)
+    
+    def generate_dashboard(self):
+        """Generate HTML dashboard"""
+        print()
+        print("Generating Dashboard...")
+        
+        if not Path("state.json").exists():
+            print("[ERROR] state.json not found! Run config generator first.")
+            return False
+        
+        # Read template
+        dashboard_template = Path(__file__).parent / "dashboard-template.html"
+        if not dashboard_template.exists():
+            print("[ERROR] dashboard-template.html not found!")
+            return False
+        
+        with open(dashboard_template, 'r', encoding='utf-8') as f:
+            html_content = f.read()
+        
+        # Embed state and config data
+        state_json = json.dumps(self.state, ensure_ascii=False, indent=2)
+        config_json = json.dumps(self.config, ensure_ascii=False, indent=2)
+        
+        # Replace placeholder with embedded data
+        html_content = html_content.replace(
+            '// STATE_DATA_PLACEHOLDER',
+            f'const stateData = {state_json};\nconst configData = {config_json};'
+        )
+        
+        # Write dashboard
+        output_file = Path("dashboard.html")
+        with open(output_file, 'w', encoding='utf-8') as f:
+            f.write(html_content)
+        
+        print(f"[OK] Dashboard generated: {output_file.absolute()}")
+        return True
+
+def get_valid_input(prompt: str, valid_options: list) -> str:
+    """Get valid input from user"""
+    while True:
+        user_input = input(prompt).strip().lower()
+        if user_input in valid_options:
+            return user_input
+        print(f"Invalid input. Please enter one of: {', '.join(valid_options)}")
+
+def interactive_menu():
+    """Interactive menu for generator"""
+    print()
+    print("=" * 60)
+    print("Backhaul Premium Bulk Config Generator")
+    print("=" * 60)
+    print()
+    print("What would you like to generate?")
+    print()
+    print("[1] Configs only")
+    print("[2] Configs + Dashboard")
+    print("[3] Configs + Optimization scripts")
+    print("[4] Everything (Configs + Dashboard + Optimization)")
+    print("[5] View current state")
+    print("[0] Exit")
+    print()
+    
+    choice = get_valid_input("Enter choice (0-5): ", ['0', '1', '2', '3', '4', '5'])
+    
+    if choice == '0':
+        print("Goodbye!")
+        return
+    
+    generator = BackhaulBulkGenerator()
+    
+    if choice == '5':
+        generator.view_state()
+        return
+    
+    # Generate configs
+    if choice in ['1', '2', '3', '4']:
+        generator.generate_all_configs()
+    
+    # Generate dashboard
+    if choice in ['2', '4']:
+        generator.generate_dashboard()
+    
+    # Copy optimization scripts
+    if choice in ['3', '4']:
+        print()
+        print("Copying optimization scripts...")
+        import shutil
+        
+        src_iran = Path(__file__).parent / "optimize-iran.sh"
+        src_kharej = Path(__file__).parent / "optimize-kharej.sh"
+        
+        if src_iran.exists() and src_kharej.exists():
+            # Copy to each Iran server dir
+            for iran_server in generator.config.get("iran_servers", []):
+                dest_dir = generator.output_dir / "Iran" / iran_server["name"]
+                if dest_dir.exists():
+                    shutil.copy(src_iran, dest_dir / "optimize-iran.sh")
+                    os.chmod(dest_dir / "optimize-iran.sh", 0o755)
+            
+            # Copy to each Kharej server dir
+            for kharej_server in generator.config.get("kharej_servers", []):
+                dest_dir = generator.output_dir / "Kharej" / kharej_server["name"]
+                if dest_dir.exists():
+                    shutil.copy(src_kharej, dest_dir / "optimize-kharej.sh")
+                    os.chmod(dest_dir / "optimize-kharej.sh", 0o755)
+            
+            print("[OK] Optimization scripts copied!")
+        else:
+            print("[WARNING] Optimization scripts not found")
 
 def main():
     try:
-        generator = BackhaulBulkGenerator("config.json")
-        generator.generate_all_configs()
-    except FileNotFoundError as e:
-        print(f"[ERROR] {e}")
+        interactive_menu()
+    except KeyboardInterrupt:
+        print("\n\n[INFO] Interrupted by user")
     except Exception as e:
         print(f"[ERROR] {e}")
         import traceback

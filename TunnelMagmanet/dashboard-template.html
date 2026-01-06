@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tunnel Management Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazir-font@v30.1.0/dist/font-face.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Vazir', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 25px 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            color: #667eea;
+            font-size: 2rem;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 15px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            font-weight: 600;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+            font-family: 'Vazir', sans-serif;
+        }
+
+        .btn:hover {
+            transform: scale(1.05);
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+        }
+
+        .btn-success {
+            background: #48bb78;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #38a169;
+        }
+
+        .btn-warning {
+            background: #ed8936;
+            color: white;
+        }
+
+        .btn-warning:hover {
+            background: #dd6b20;
+        }
+
+        .btn-danger {
+            background: #f56565;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #e53e3e;
+        }
+
+        .btn-info {
+            background: #4299e1;
+            color: white;
+        }
+
+        .btn-info:hover {
+            background: #3182ce;
+        }
+
+        .btn-secondary {
+            background: #718096;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #4a5568;
+        }
+
+        .btn-small {
+            padding: 8px 16px;
+            font-size: 0.85rem;
+        }
+
+        .global-actions {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        .global-actions h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+        }
+
+        .action-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+        }
+
+        .filters {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+
+        .filters h3 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .filter-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
+
+        .filter-group input,
+        .filter-group select {
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-family: 'Vazir', sans-serif;
+        }
+
+        .filter-group input:focus,
+        .filter-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .configs-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(500px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .config-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            overflow: hidden;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .config-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+
+        .config-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+        }
+
+        .config-header h3 {
+            font-size: 1.2rem;
+            margin-bottom: 10px;
+        }
+
+        .config-badges {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .badge {
+            background: rgba(255,255,255,0.25);
+            padding: 5px 12px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            backdrop-filter: blur(10px);
+        }
+
+        .config-body {
+            padding: 20px;
+        }
+
+        .config-info {
+            margin-bottom: 15px;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .info-row:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            color: #666;
+            font-weight: 600;
+        }
+
+        .info-value {
+            color: #333;
+            font-family: 'Courier New', monospace;
+        }
+
+        .config-actions {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            margin-top: 15px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 60px;
+            color: white;
+            font-size: 1.5rem;
+        }
+
+        .empty-state {
+            background: white;
+            padding: 60px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .empty-state h2 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: white;
+            padding: 15px 25px;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            z-index: 1000;
+            display: none;
+            animation: slideIn 0.3s ease;
+            max-width: 400px;
+        }
+
+        .notification.show {
+            display: block;
+        }
+
+        .notification.success {
+            border-left: 5px solid #48bb78;
+        }
+
+        .notification.error {
+            border-left: 5px solid #f56565;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+        }
+
+        .modal.show {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            max-width: 900px;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-header h2 {
+            color: #667eea;
+        }
+
+        .close-btn {
+            background: #f56565;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+
+        .transport-guide {
+            line-height: 1.8;
+        }
+
+        .transport-guide h3 {
+            color: #667eea;
+            margin-top: 20px;
+            margin-bottom: 10px;
+        }
+
+        .transport-guide ul {
+            margin-left: 20px;
+            margin-bottom: 15px;
+        }
+
+        .transport-guide code {
+            background: #f7fafc;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+        }
+
+        @media (max-width: 768px) {
+            .configs-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .config-actions {
+                grid-template-columns: 1fr;
+            }
+
+            .action-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .header {
+                flex-direction: column;
+                gap: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 Tunnel Management Dashboard</h1>
+            <div class="header-actions">
+                <button class="btn btn-primary btn-small" onclick="showTransportGuide()">
+                    📚 Transport Guide
+                </button>
+            </div>
+        </div>
+
+        <div class="global-actions">
+            <h2>Quick Actions</h2>
+            <div class="action-grid">
+                <button class="btn btn-info" onclick="copyGlobalCommand('extract')">
+                    📦 Extract & Chmod Binary
+                </button>
+                <button class="btn btn-success" onclick="copyGlobalCommand('restart')">
+                    🔄 Restart All Services
+                </button>
+                <button class="btn btn-warning" onclick="copyGlobalCommand('stop')">
+                    ⏸️ Stop All Services
+                </button>
+                <button class="btn btn-danger" onclick="copyGlobalCommand('remove')">
+                    🗑️ Remove All Services
+                </button>
+            </div>
+        </div>
+
+        <div class="filters">
+            <h3>🔍 Filter Configs</h3>
+            <div class="filter-group">
+                <input type="text" id="searchInput" placeholder="Search by name, port, transport..." onkeyup="filterConfigs()">
+                <select id="serverFilter" onchange="filterConfigs()">
+                    <option value="">All Servers</option>
+                </select>
+                <select id="transportFilter" onchange="filterConfigs()">
+                    <option value="">All Transports</option>
+                </select>
+                <select id="profileFilter" onchange="filterConfigs()">
+                    <option value="">All Profiles</option>
+                </select>
+            </div>
+        </div>
+
+        <div id="loading" class="loading">
+            Loading configurations...
+        </div>
+
+        <div id="configs-container" class="configs-grid" style="display: none;">
+            <!-- Config cards will be inserted here -->
+        </div>
+
+        <div id="empty-state" class="empty-state" style="display: none;">
+            <h2>No configurations found!</h2>
+            <p>Please run generator.py first to create configurations.</p>
+        </div>
+    </div>
+
+    <div id="notification" class="notification"></div>
+
+    <div id="transportModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>📚 Transport Guide</h2>
+                <button class="close-btn" onclick="closeTransportGuide()">✕ Close</button>
+            </div>
+            <div class="transport-guide">
+                <h3>🟢 TCP Transport</h3>
+                <p><strong>بهترین برای:</strong> سرعت بالا، دانلود، استریم</p>
+                <ul>
+                    <li>سریع‌ترین سرعت دانلود و آپلود</li>
+                    <li>پشتیبانی UDP روی TCP</li>
+                    <li>تعداد connection بالا (ممکن است مشکل دیتاسنتر)</li>
+                </ul>
+                <p><strong>دستور نصب:</strong></p>
+                <code>systemctl enable backhaul-iran100-tcp-speed.service<br>
+                systemctl start backhaul-iran100-tcp-speed.service</code>
+
+                <h3>🔵 TCPMUX Transport</h3>
+                <p><strong>بهترین برای:</strong> استفاده عمومی، دیتاسنتر</p>
+                <ul>
+                    <li>Connection reuse (تعداد کانکشن کم)</li>
+                    <li>سرعت خوب با تنظیم buffer</li>
+                    <li>توجه: دانلود سنگین یک کاربر ممکن است بقیه را congested کند</li>
+                </ul>
+                <p><strong>تنظیمات توصیه شده:</strong></p>
+                <code>mux_con = 64<br>
+                mux_version = 2<br>
+                channel_size = 2048</code>
+
+                <h3>🟢 uTCPMUX Transport</h3>
+                <p><strong>بهترین برای:</strong> چند کاربره، پنل VPN</p>
+                <ul>
+                    <li>هر کاربر یک connection جدا (ایزوله)</li>
+                    <li>یک کاربر روی بقیه تأثیر نمی‌گذارد</li>
+                    <li>بهتر از TCPMUX برای production</li>
+                </ul>
+                <p><strong>مناسب برای:</strong></p>
+                <code>پنل‌های فروش | VPN مشترک | محیط production</code>
+
+                <h3>🛡️ xTCPMUX Transport</h3>
+                <p><strong>بهترین برای:</strong> شرایط بحرانی، نت‌ملی</p>
+                <ul>
+                    <li>بازیابی هوشمند connection های قطع شده</li>
+                    <li>بدون ریست کامل تانل</li>
+                    <li>Load balancing بین چند سرور</li>
+                </ul>
+                <p><strong>استفاده در نت‌ملی:</strong></p>
+                <code>transport = "xtcpmux"<br>
+                mux_con = 128<br>
+                mux_version = 2</code>
+
+                <h3>🌐 WS (WebSocket) Transport</h3>
+                <p><strong>بهترین برای:</strong> عبور از CDN، فیلتر</p>
+                <ul>
+                    <li>عملکرد مشابه TCP</li>
+                    <li>قابل عبور از CDN (Cloudflare)</li>
+                    <li>پشتیبانی Edge IP</li>
+                </ul>
+                <p><strong>استفاده با Cloudflare:</strong></p>
+                <code>transport = "ws"<br>
+                edge_ip = "188.114.96.0"  # IP های Cloudflare<br>
+                # پورت: 443, 8443, 2053, 2083, 2087, 2096</code>
+
+                <h3>🔵 WSMUX, uWSMUX, xWSMUX</h3>
+                <p><strong>بهترین برای:</strong> CDN با مصرف کم</p>
+                <ul>
+                    <li>ترکیب WebSocket + Multiplexing</li>
+                    <li>مصرف منابع کمتر از WS</li>
+                    <li>uWSMUX: ایزوله برای هر کاربر</li>
+                    <li>xWSMUX: شرایط بحرانی + CDN</li>
+                </ul>
+                <p><strong>روتینگ پیشنهادی:</strong></p>
+                <code>Hetzner → Cloudflare (wsmux) → Iran</code>
+
+                <h3>🔴 UDP Transport</h3>
+                <p><strong>بهترین برای:</strong> تانل WireGuard</p>
+                <ul>
+                    <li>کم‌ترین امنیت (بدون رمزنگاری)</li>
+                    <li>سریع برای WireGuard/OpenVPN UDP</li>
+                </ul>
+                <p><strong>استفاده:</strong></p>
+                <code>transport = "udp"<br>
+                # برای تانل WireGuard یا OpenVPN UDP</code>
+
+                <h3>🌉 TUN Transports</h3>
+                <p><strong>TCPTUN:</strong> TUN روی TCP - پایدار</p>
+                <p><strong>FakeTCPTUN:</strong> کم‌ترین latency - بهترین برای Gaming</p>
+                <p><strong>WSTUN:</strong> TUN با WebSocket</p>
+                <p><strong>UDPTUN:</strong> TUN روی UDP</p>
+                <p><strong>مثال استفاده:</strong></p>
+                <code>transport = "tcptun"<br>
+                tun_subnet = "10.10.10.0/24"<br>
+                mtu = 1400<br>
+                # بعد از نصب:<br>
+                iptables -t nat -A PREROUTING -i eth0 -p tcp --dport 51820 \\<br>
+                &nbsp;&nbsp;-j DNAT --to-destination 10.10.10.2:51820</code>
+
+                <h3>💡 راهنمای سریع انتخاب</h3>
+                <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+                    <tr style="background: #f7fafc;">
+                        <td style="padding: 8px; border: 1px solid #ddd;"><strong>نیاز شما</strong></td>
+                        <td style="padding: 8px; border: 1px solid #ddd;"><strong>Transport پیشنهادی</strong></td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px; border: 1px solid #ddd;">سرعت بالا</td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">TCP, TCPMUX</td>
+                    </tr>
+                    <tr style="background: #f7fafc;">
+                        <td style="padding: 8px; border: 1px solid #ddd;">چند کاربره</td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">uTCPMUX, uWSMUX</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px; border: 1px solid #ddd;">شبکه ناپایدار</td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">xTCPMUX, xWSMUX</td>
+                    </tr>
+                    <tr style="background: #f7fafc;">
+                        <td style="padding: 8px; border: 1px solid #ddd;">عبور از CDN</td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">WS, WSMUX variants</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px; border: 1px solid #ddd;">Gaming / کم‌ترین تأخیر</td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">FakeTCPTUN, UDP</td>
+                    </tr>
+                    <tr style="background: #f7fafc;">
+                        <td style="padding: 8px; border: 1px solid #ddd;">تانل WireGuard</td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">TCPTUN, FakeTCPTUN</td>
+                    </tr>
+                </table>
+
+                <h3>🔧 دستورات مفید</h3>
+                <p><strong>نصب دستی سرویس:</strong></p>
+                <code>systemctl enable backhaul-SERVICE.service<br>
+                systemctl start backhaul-SERVICE.service</code>
+
+                <p><strong>چک وضعیت:</strong></p>
+                <code>systemctl status backhaul-SERVICE.service</code>
+
+                <p><strong>مشاهده لاگ:</strong></p>
+                <code>journalctl -u backhaul-SERVICE.service -f</code>
+
+                <p><strong>ری‌استارت:</strong></p>
+                <code>systemctl restart backhaul-SERVICE.service</code>
+
+                <p><strong>استاپ:</strong></p>
+                <code>systemctl stop backhaul-SERVICE.service</code>
+
+                <p><strong>حذف سرویس:</strong></p>
+                <code>systemctl stop backhaul-SERVICE.service<br>
+                systemctl disable backhaul-SERVICE.service<br>
+                rm /etc/systemd/system/backhaul-SERVICE.service<br>
+                systemctl daemon-reload</code>
+
+                <p><strong>تست سرعت با iperf3:</strong></p>
+                <code># روی Kharej:<br>
+                iperf3 -s -B 127.0.0.1 -p 5201<br>
+                <br>
+                # روی Iran:<br>
+                iperf3 -c 127.0.0.1 -p 5001 -t 30</code>
+
+                <p><strong>مشاهده Web Panel:</strong></p>
+                <code>http://SERVER_IP:WEB_PORT</code>
+
+                <h3>⚠️ نکات مهم</h3>
+                <ul>
+                    <li><strong>Firewall:</strong> پورت‌های tunnel و web را باز کنید</li>
+                    <li><strong>Token:</strong> Iran و Kharej باید token یکسان داشته باشند</li>
+                    <li><strong>TUN Subnet:</strong> باید در دو طرف یکسان باشد</li>
+                    <li><strong>Edge IP:</strong> فقط برای WS transports و با CDN</li>
+                    <li><strong>BBR:</strong> فعال‌سازی BBR بهبود قابل توجه در سرعت</li>
+                </ul>
+
+                <p><strong>فعال‌سازی BBR:</strong></p>
+                <code>echo "net.core.default_qdisc=fq" >> /etc/sysctl.conf<br>
+                echo "net.ipv4.tcp_congestion_control=bbr" >> /etc/sysctl.conf<br>
+                sysctl -p</code>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let allConfigs = [];
+        let serverIPs = {};
+        
+        // STATE_DATA_PLACEHOLDER
+        
+        function init() {
+            if (typeof stateData === 'undefined' || typeof configData === 'undefined') {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('empty-state').style.display = 'block';
+                showNotification('Error: Configuration data not found!', 'error');
+                return;
+            }
+            
+            allConfigs = stateData.generated_configs || [];
+            
+            // Build server IP map
+            configData.iran_servers.forEach(server => {
+                serverIPs[server.name] = { ip: server.ip, type: 'iran' };
+            });
+            configData.kharej_servers.forEach(server => {
+                serverIPs[server.name] = { ip: server.ip, type: 'kharej' };
+            });
+            
+            if (allConfigs.length === 0) {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('empty-state').style.display = 'block';
+                return;
+            }
+            
+            populateFilters();
+            renderConfigs(allConfigs);
+            
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('configs-container').style.display = 'grid';
+        }
+        
+        function populateFilters() {
+            const servers = new Set();
+            const transports = new Set();
+            const profiles = new Set();
+            
+            allConfigs.forEach(c => {
+                servers.add(c.iran);
+                servers.add(c.kharej);
+                transports.add(c.transport);
+                profiles.add(c.profile);
+            });
+            
+            const serverFilter = document.getElementById('serverFilter');
+            Array.from(servers).sort().forEach(server => {
+                const option = document.createElement('option');
+                option.value = server;
+                option.textContent = server;
+                serverFilter.appendChild(option);
+            });
+            
+            const transportFilter = document.getElementById('transportFilter');
+            Array.from(transports).sort().forEach(transport => {
+                const option = document.createElement('option');
+                option.value = transport;
+                option.textContent = transport.toUpperCase();
+                transportFilter.appendChild(option);
+            });
+            
+            const profileFilter = document.getElementById('profileFilter');
+            Array.from(profiles).sort().forEach(profile => {
+                const option = document.createElement('option');
+                option.value = profile;
+                option.textContent = profile.charAt(0).toUpperCase() + profile.slice(1);
+                profileFilter.appendChild(option);
+            });
+        }
+        
+        function renderConfigs(configs) {
+            const container = document.getElementById('configs-container');
+            
+            if (configs.length === 0) {
+                container.innerHTML = '<div class="empty-state"><h2>No results found</h2><p>Try different filters</p></div>';
+                container.style.display = 'block';
+                return;
+            }
+            
+            const configsHTML = configs.map(config => {
+                const serviceName = generateServiceName(config);
+                const transportDisplay = config.mux_version 
+                    ? `${config.transport}-v${config.mux_version}`
+                    : config.transport;
+                
+                const iranIP = serverIPs[config.iran]?.ip || 'SERVER_IP';
+                const kharejIP = serverIPs[config.kharej]?.ip || 'SERVER_IP';
+                
+                return `
+                    <div class="config-card">
+                        <div class="config-header">
+                            <h3>${serviceName}</h3>
+                            <div class="config-badges">
+                                <span class="badge">${config.iran} (Iran) → ${config.kharej} (Kharej)</span>
+                                <span class="badge">${transportDisplay.toUpperCase()}</span>
+                                <span class="badge">${config.profile.toUpperCase()}</span>
+                            </div>
+                        </div>
+                        <div class="config-body">
+                            <div class="config-info">
+                                <div class="info-row">
+                                    <span class="info-label">Tunnel Port:</span>
+                                    <span class="info-value">${config.tunnel_port}</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">Web Port:</span>
+                                    <span class="info-value">${config.web_port}</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">iperf Port:</span>
+                                    <span class="info-value">${config.iperf_port}</span>
+                                </div>
+                                ${config.subnet ? `
+                                <div class="info-row">
+                                    <span class="info-label">Subnet:</span>
+                                    <span class="info-value">${config.subnet}</span>
+                                </div>
+                                ` : ''}
+                            </div>
+                            <div class="config-actions">
+                                <button class="btn btn-primary btn-small" onclick="openWebPanel('${iranIP}', ${config.web_port})">
+                                    🌐 Web ${config.iran}
+                                </button>
+                                <button class="btn btn-primary btn-small" onclick="openWebPanel('${kharejIP}', ${config.web_port})">
+                                    🌐 Web ${config.kharej}
+                                </button>
+                                <button class="btn btn-success btn-small" onclick="copyCommand('install', '${serviceName}', 'iran')">
+                                    📥 Install ${config.iran}
+                                </button>
+                                <button class="btn btn-success btn-small" onclick="copyCommand('install', '${serviceName}', 'kharej')">
+                                    📥 Install ${config.kharej}
+                                </button>
+                                <button class="btn btn-info btn-small" onclick="copyCommand('status', '${serviceName}', 'iran')">
+                                    📊 Status ${config.iran}
+                                </button>
+                                <button class="btn btn-info btn-small" onclick="copyCommand('status', '${serviceName}', 'kharej')">
+                                    📊 Status ${config.kharej}
+                                </button>
+                                <button class="btn btn-success btn-small" onclick="copyCommand('start', '${serviceName}', 'iran')">
+                                    ▶️ Start ${config.iran}
+                                </button>
+                                <button class="btn btn-success btn-small" onclick="copyCommand('start', '${serviceName}', 'kharej')">
+                                    ▶️ Start ${config.kharej}
+                                </button>
+                                <button class="btn btn-warning btn-small" onclick="copyCommand('stop', '${serviceName}', 'iran')">
+                                    ⏸️ Stop ${config.iran}
+                                </button>
+                                <button class="btn btn-warning btn-small" onclick="copyCommand('stop', '${serviceName}', 'kharej')">
+                                    ⏸️ Stop ${config.kharej}
+                                </button>
+                                <button class="btn btn-success btn-small" onclick="copyCommand('restart', '${serviceName}', 'iran')">
+                                    🔄 Restart ${config.iran}
+                                </button>
+                                <button class="btn btn-success btn-small" onclick="copyCommand('restart', '${serviceName}', 'kharej')">
+                                    🔄 Restart ${config.kharej}
+                                </button>
+                                <button class="btn btn-secondary btn-small" onclick="copyCommand('log', '${serviceName}', 'iran')">
+                                    📜 Logs ${config.iran}
+                                </button>
+                                <button class="btn btn-secondary btn-small" onclick="copyCommand('log', '${serviceName}', 'kharej')">
+                                    📜 Logs ${config.kharej}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            container.innerHTML = configsHTML;
+            container.style.display = 'grid';
+        }
+        
+        function generateServiceName(config) {
+            const port = config.tunnel_port;
+            const transport = config.transport;
+            const muxVersion = config.mux_version ? `-v${config.mux_version}` : '';
+            const profile = config.profile;
+            return `backhaul-iran${port}-${transport}${muxVersion}-${profile}`;
+        }
+        
+        function openWebPanel(ip, port) {
+            window.open(`http://${ip}:${port}`, '_blank');
+        }
+        
+        function copyCommand(action, serviceName, location) {
+            let command = '';
+            const locationSuffix = location === 'iran' ? 'iran' : 'kharej';
+            const fullServiceName = serviceName.replace('iran', locationSuffix);
+            
+            switch (action) {
+                case 'install':
+                    // Extract config file name from service name
+                    const configName = fullServiceName.replace('backhaul-', '') + '.toml';
+                    const binaryPath = '/root/backhaul-core';
+                    command = `cat > /etc/systemd/system/${fullServiceName}.service << 'EOF'
+[Unit]
+Description=${fullServiceName}
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=${binaryPath}
+ExecStart=${binaryPath}/./backhaul_premium -c ${binaryPath}/${configName}
+Restart=always
+RestartSec=3
+LimitNOFILE=1048576
+
+[Install]
+WantedBy=multi-user.target
+EOF
+systemctl daemon-reload
+systemctl enable ${fullServiceName}.service
+systemctl start ${fullServiceName}.service`;
+                    break;
+                case 'status':
+                    command = `systemctl status ${fullServiceName}.service`;
+                    break;
+                case 'start':
+                    command = `systemctl start ${fullServiceName}.service`;
+                    break;
+                case 'stop':
+                    command = `systemctl stop ${fullServiceName}.service`;
+                    break;
+                case 'restart':
+                    command = `systemctl restart ${fullServiceName}.service`;
+                    break;
+                case 'log':
+                    command = `journalctl -u ${fullServiceName}.service -f`;
+                    break;
+            }
+            
+            copyToClipboard(command);
+            showNotification(`✅ Command copied: ${action} ${fullServiceName}`, 'success');
+        }
+        
+        function copyGlobalCommand(action) {
+            let command = '';
+            
+            switch (action) {
+                case 'extract':
+                    command = 'cd /root/backhaul-core && tar -xzf backhaul_premium.tar.gz && chmod +x backhaul_premium';
+                    break;
+                case 'restart':
+                    command = 'cd /root/backhaul-core && bash restart-services.sh';
+                    break;
+                case 'stop':
+                    command = 'cd /root/backhaul-core && bash stop-services.sh';
+                    break;
+                case 'remove':
+                    command = 'cd /root/backhaul-core && bash remove-services.sh';
+                    break;
+            }
+            
+            copyToClipboard(command);
+            showNotification('✅ Command copied! Paste in terminal', 'success');
+        }
+        
+        function filterConfigs() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const serverFilter = document.getElementById('serverFilter').value;
+            const transportFilter = document.getElementById('transportFilter').value;
+            const profileFilter = document.getElementById('profileFilter').value;
+            
+            const filtered = allConfigs.filter(config => {
+                const matchesSearch = 
+                    config.iran.toLowerCase().includes(searchTerm) ||
+                    config.kharej.toLowerCase().includes(searchTerm) ||
+                    config.transport.toLowerCase().includes(searchTerm) ||
+                    config.profile.toLowerCase().includes(searchTerm) ||
+                    config.tunnel_port.toString().includes(searchTerm);
+                
+                const matchesServer = !serverFilter || 
+                    config.iran === serverFilter || 
+                    config.kharej === serverFilter;
+                
+                const matchesTransport = !transportFilter || 
+                    config.transport === transportFilter;
+                
+                const matchesProfile = !profileFilter || 
+                    config.profile === profileFilter;
+                
+                return matchesSearch && matchesServer && matchesTransport && matchesProfile;
+            });
+            
+            renderConfigs(filtered);
+        }
+        
+        function copyToClipboard(text) {
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(text);
+            } else {
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                textarea.style.position = 'fixed';
+                textarea.style.opacity = '0';
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+            }
+        }
+        
+        function showNotification(message, type = 'success') {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = `notification ${type} show`;
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+        
+        function showTransportGuide() {
+            document.getElementById('transportModal').classList.add('show');
+        }
+        
+        function closeTransportGuide() {
+            document.getElementById('transportModal').classList.remove('show');
+        }
+        
+        window.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

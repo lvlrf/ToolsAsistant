@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tunnel Management Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazir-font@v30.1.0/dist/font-face.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Vazir', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 25px 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            color: #667eea;
+            font-size: 2rem;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 15px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            font-weight: 600;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+            font-family: 'Vazir', sans-serif;
+        }
+
+        .btn:hover {
+            transform: scale(1.05);
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+        }
+
+        .btn-success {
+            background: #48bb78;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #38a169;
+        }
+
+        .btn-warning {
+            background: #ed8936;
+            color: white;
+        }
+
+        .btn-warning:hover {
+            background: #dd6b20;
+        }
+
+        .btn-danger {
+            background: #f56565;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #e53e3e;
+        }
+
+        .btn-info {
+            background: #4299e1;
+            color: white;
+        }
+
+        .btn-info:hover {
+            background: #3182ce;
+        }
+
+        .btn-secondary {
+            background: #718096;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #4a5568;
+        }
+
+        .btn-small {
+            padding: 8px 16px;
+            font-size: 0.85rem;
+        }
+
+        .global-actions {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        .global-actions h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+        }
+
+        .action-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+        }
+
+        .filters {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+
+        .filters h3 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .filter-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
+
+        .filter-group input,
+        .filter-group select {
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-family: 'Vazir', sans-serif;
+        }
+
+        .filter-group input:focus,
+        .filter-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .configs-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(500px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .config-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            overflow: hidden;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .config-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+
+        .config-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+        }
+
+        .config-header h3 {
+            font-size: 1.2rem;
+            margin-bottom: 10px;
+        }
+
+        .config-badges {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .badge {
+            background: rgba(255,255,255,0.25);
+            padding: 5px 12px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            backdrop-filter: blur(10px);
+        }
+
+        .config-body {
+            padding: 20px;
+        }
+
+        .config-info {
+            margin-bottom: 15px;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .info-row:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            color: #666;
+            font-weight: 600;
+        }
+
+        .info-value {
+            color: #333;
+            font-family: 'Courier New', monospace;
+        }
+
+        .config-actions {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            margin-top: 15px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 60px;
+            color: white;
+            font-size: 1.5rem;
+        }
+
+        .empty-state {
+            background: white;
+            padding: 60px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .empty-state h2 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: white;
+            padding: 15px 25px;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            z-index: 1000;
+            display: none;
+            animation: slideIn 0.3s ease;
+            max-width: 400px;
+        }
+
+        .notification.show {
+            display: block;
+        }
+
+        .notification.success {
+            border-left: 5px solid #48bb78;
+        }
+
+        .notification.error {
+            border-left: 5px solid #f56565;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+        }
+
+        .modal.show {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            max-width: 900px;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-header h2 {
+            color: #667eea;
+        }
+
+        .close-btn {
+            background: #f56565;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+
+        .transport-guide {
+            line-height: 1.8;
+        }
+
+        .transport-guide h3 {
+            color: #667eea;
+            margin-top: 20px;
+            margin-bottom: 10px;
+        }
+
+        .transport-guide ul {
+            margin-left: 20px;
+            margin-bottom: 15px;
+        }
+
+        .transport-guide code {
+            background: #f7fafc;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .footer {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            text-align: center;
+            margin-top: 30px;
+        }
+
+        .footer a {
+            color: #667eea;
+            text-decoration: none;
+            margin: 0 15px;
+            font-weight: 600;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 768px) {
+            .configs-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .config-actions {
+                grid-template-columns: 1fr;
+            }
+
+            .action-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .header {
+                flex-direction: column;
+                gap: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 Tunnel Management Dashboard</h1>
+            <div class="header-actions">
+                <button class="btn btn-primary btn-small" onclick="showTransportGuide()">
+                    📚 Transport Guide
+                </button>
+            </div>
+        </div>
+
+        <div class="global-actions">
+            <h2>Quick Actions</h2>
+            <div class="action-grid">
+                <button class="btn btn-info" onclick="copyGlobalCommand('extract')">
+                    📦 Extract & Chmod Binary
+                </button>
+                <button class="btn btn-success" onclick="copyGlobalCommand('restart')">
+                    🔄 Restart All Services
+                </button>
+                <button class="btn btn-warning" onclick="copyGlobalCommand('stop')">
+                    ⏸️ Stop All Services
+                </button>
+                <button class="btn btn-danger" onclick="copyGlobalCommand('remove')">
+                    🗑️ Remove All Services
+                </button>
+            </div>
+        </div>
+
+        <div class="filters">
+            <h3>🔍 Filter Configs</h3>
+            <div class="filter-group">
+                <input type="text" id="searchInput" placeholder="Search by name, port, transport..." onkeyup="filterConfigs()">
+                <select id="serverFilter" onchange="filterConfigs()">
+                    <option value="">All Servers</option>
+                </select>
+                <select id="transportFilter" onchange="filterConfigs()">
+                    <option value="">All Transports</option>
+                </select>
+                <select id="profileFilter" onchange="filterConfigs()">
+                    <option value="">All Profiles</option>
+                </select>
+            </div>
+        </div>
+
+        <div id="loading" class="loading">
+            Loading configurations...
+        </div>
+
+        <div id="configs-container" class="configs-grid" style="display: none;">
+            <!-- Config cards will be inserted here -->
+        </div>
+
+        <div id="empty-state" class="empty-state" style="display: none;">
+            <h2>No configurations found!</h2>
+            <p>Please run generator.py first to create configurations.</p>
+        </div>
+
+        <div class="footer">
+            <a href="#" onclick="showTransportGuide(); return false;">Transport Guide</a>
+            <span>|</span>
+            <a href="https://github.com/Musixal/Backhaul" target="_blank">Backhaul GitHub</a>
+            <span>|</span>
+            <a href="README.md" target="_blank">Documentation</a>
+        </div>
+    </div>
+
+    <div id="notification" class="notification"></div>
+
+    <div id="transportModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>📚 Transport Guide</h2>
+                <button class="close-btn" onclick="closeTransportGuide()">✕ Close</button>
+            </div>
+            <div class="transport-guide">
+                <h3>🟢 TCP Transport</h3>
+                <p><strong>Best for:</strong> High speed downloads, streaming, high bandwidth</p>
+                <ul>
+                    <li>Fastest download/upload speed</li>
+                    <li>UDP over TCP support</li>
+                    <li>High connection count (may trigger datacenter limits)</li>
+                </ul>
+
+                <h3>🔵 TCPMUX Transport</h3>
+                <p><strong>Best for:</strong> General use, datacenter-friendly</p>
+                <ul>
+                    <li>Connection reuse (fewer connections)</li>
+                    <li>Good speed with proper buffer settings</li>
+                    <li>Note: Heavy download by one user may congest stream</li>
+                </ul>
+
+                <h3>🟢 uTCPMUX Transport</h3>
+                <p><strong>Best for:</strong> Multi-user environments, VPN panels</p>
+                <ul>
+                    <li>Per-user connection (isolated streams)</li>
+                    <li>No interference between users</li>
+                    <li>Better than TCPMUX for production</li>
+                </ul>
+
+                <h3>🛡️ xTCPMUX Transport</h3>
+                <p><strong>Best for:</strong> Critical situations, unstable networks</p>
+                <ul>
+                    <li>Smart recovery for dropped connections</li>
+                    <li>No full tunnel reset needed</li>
+                    <li>Load balancing between servers</li>
+                </ul>
+
+                <h3>🌐 WS (WebSocket) Transport</h3>
+                <p><strong>Best for:</strong> CDN bypass, filtered environments</p>
+                <ul>
+                    <li>Similar to TCP in performance</li>
+                    <li>Can pass through CDN (Cloudflare)</li>
+                    <li>Edge IP support</li>
+                </ul>
+
+                <h3>🔵 WSMUX, uWSMUX, xWSMUX</h3>
+                <p><strong>Best for:</strong> CDN bypass with resource efficiency</p>
+                <ul>
+                    <li>WebSocket + Multiplexing benefits</li>
+                    <li>Lower resource usage than WS</li>
+                    <li>uWSMUX: Per-user isolation</li>
+                    <li>xWSMUX: Critical situations with CDN</li>
+                </ul>
+
+                <h3>🔴 UDP Transport</h3>
+                <p><strong>Best for:</strong> WireGuard tunneling</p>
+                <ul>
+                    <li>Lowest security (no encryption)</li>
+                    <li>Fast for WireGuard/OpenVPN UDP</li>
+                </ul>
+
+                <h3>🌉 TUN Transports (TCPTUN, FakeTCPTUN, WSTUN, UDPTUN)</h3>
+                <p><strong>Best for:</strong> Complex routing, gaming (FakeTCP)</p>
+                <ul>
+                    <li>Provides local IP for forwarding</li>
+                    <li>FakeTCPTUN: Lowest latency, best for gaming</li>
+                    <li>TCPTUN: TCP-based, stable</li>
+                </ul>
+
+                <h3>💡 Quick Selection Guide</h3>
+                <ul>
+                    <li><strong>Need speed:</strong> TCP, TCPMUX</li>
+                    <li><strong>Multi-user:</strong> uTCPMUX, uWSMUX</li>
+                    <li><strong>Unstable network:</strong> xTCPMUX, xWSMUX</li>
+                    <li><strong>CDN bypass:</strong> WS, WSMUX variants</li>
+                    <li><strong>Gaming/Low latency:</strong> FakeTCPTUN, UDP</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let allConfigs = [];
+        let serverIPs = {};
+        
+        // STATE_DATA_PLACEHOLDER
+        
+        function init() {
+            if (typeof stateData === 'undefined' || typeof configData === 'undefined') {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('empty-state').style.display = 'block';
+                showNotification('Error: Configuration data not found!', 'error');
+                return;
+            }
+            
+            allConfigs = stateData.generated_configs || [];
+            
+            // Build server IP map
+            configData.iran_servers.forEach(server => {
+                serverIPs[server.name] = { ip: server.ip, type: 'iran' };
+            });
+            configData.kharej_servers.forEach(server => {
+                serverIPs[server.name] = { ip: server.ip, type: 'kharej' };
+            });
+            
+            if (allConfigs.length === 0) {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('empty-state').style.display = 'block';
+                return;
+            }
+            
+            populateFilters();
+            renderConfigs(allConfigs);
+            
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('configs-container').style.display = 'grid';
+        }
+        
+        function populateFilters() {
+            const servers = new Set();
+            const transports = new Set();
+            const profiles = new Set();
+            
+            allConfigs.forEach(c => {
+                servers.add(c.iran);
+                servers.add(c.kharej);
+                transports.add(c.transport);
+                profiles.add(c.profile);
+            });
+            
+            const serverFilter = document.getElementById('serverFilter');
+            Array.from(servers).sort().forEach(server => {
+                const option = document.createElement('option');
+                option.value = server;
+                option.textContent = server;
+                serverFilter.appendChild(option);
+            });
+            
+            const transportFilter = document.getElementById('transportFilter');
+            Array.from(transports).sort().forEach(transport => {
+                const option = document.createElement('option');
+                option.value = transport;
+                option.textContent = transport.toUpperCase();
+                transportFilter.appendChild(option);
+            });
+            
+            const profileFilter = document.getElementById('profileFilter');
+            Array.from(profiles).sort().forEach(profile => {
+                const option = document.createElement('option');
+                option.value = profile;
+                option.textContent = profile.charAt(0).toUpperCase() + profile.slice(1);
+                profileFilter.appendChild(option);
+            });
+        }
+        
+        function renderConfigs(configs) {
+            const container = document.getElementById('configs-container');
+            
+            if (configs.length === 0) {
+                container.innerHTML = '<div class="empty-state"><h2>No results found</h2><p>Try different filters</p></div>';
+                container.style.display = 'block';
+                return;
+            }
+            
+            const configsHTML = configs.map(config => {
+                const serviceName = generateServiceName(config);
+                const transportDisplay = config.mux_version 
+                    ? `${config.transport}-v${config.mux_version}`
+                    : config.transport;
+                
+                const iranIP = serverIPs[config.iran]?.ip || 'SERVER_IP';
+                const kharejIP = serverIPs[config.kharej]?.ip || 'SERVER_IP';
+                
+                return `
+                    <div class="config-card">
+                        <div class="config-header">
+                            <h3>${serviceName}</h3>
+                            <div class="config-badges">
+                                <span class="badge">${config.iran} (Iran) → ${config.kharej} (Kharej)</span>
+                                <span class="badge">${transportDisplay.toUpperCase()}</span>
+                                <span class="badge">${config.profile.toUpperCase()}</span>
+                            </div>
+                        </div>
+                        <div class="config-body">
+                            <div class="config-info">
+                                <div class="info-row">
+                                    <span class="info-label">Tunnel Port:</span>
+                                    <span class="info-value">${config.tunnel_port}</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">Web Port:</span>
+                                    <span class="info-value">${config.web_port}</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">iperf Port:</span>
+                                    <span class="info-value">${config.iperf_port}</span>
+                                </div>
+                                ${config.subnet ? `
+                                <div class="info-row">
+                                    <span class="info-label">Subnet:</span>
+                                    <span class="info-value">${config.subnet}</span>
+                                </div>
+                                ` : ''}
+                            </div>
+                            <div class="config-actions">
+                                <button class="btn btn-primary btn-small" onclick="openWebPanel('${iranIP}', ${config.web_port})">
+                                    🌐 Web ${config.iran}
+                                </button>
+                                <button class="btn btn-primary btn-small" onclick="openWebPanel('${kharejIP}', ${config.web_port})">
+                                    🌐 Web ${config.kharej}
+                                </button>
+                                <button class="btn btn-info btn-small" onclick="copyCommand('status', '${serviceName}', 'iran')">
+                                    📊 Status ${config.iran}
+                                </button>
+                                <button class="btn btn-info btn-small" onclick="copyCommand('status', '${serviceName}', 'kharej')">
+                                    📊 Status ${config.kharej}
+                                </button>
+                                <button class="btn btn-success btn-small" onclick="copyCommand('start', '${serviceName}', 'iran')">
+                                    ▶️ Start ${config.iran}
+                                </button>
+                                <button class="btn btn-success btn-small" onclick="copyCommand('start', '${serviceName}', 'kharej')">
+                                    ▶️ Start ${config.kharej}
+                                </button>
+                                <button class="btn btn-warning btn-small" onclick="copyCommand('stop', '${serviceName}', 'iran')">
+                                    ⏸️ Stop ${config.iran}
+                                </button>
+                                <button class="btn btn-warning btn-small" onclick="copyCommand('stop', '${serviceName}', 'kharej')">
+                                    ⏸️ Stop ${config.kharej}
+                                </button>
+                                <button class="btn btn-success btn-small" onclick="copyCommand('restart', '${serviceName}', 'iran')">
+                                    🔄 Restart ${config.iran}
+                                </button>
+                                <button class="btn btn-success btn-small" onclick="copyCommand('restart', '${serviceName}', 'kharej')">
+                                    🔄 Restart ${config.kharej}
+                                </button>
+                                <button class="btn btn-secondary btn-small" onclick="copyCommand('log', '${serviceName}', 'iran')">
+                                    📜 Logs ${config.iran}
+                                </button>
+                                <button class="btn btn-secondary btn-small" onclick="copyCommand('log', '${serviceName}', 'kharej')">
+                                    📜 Logs ${config.kharej}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            container.innerHTML = configsHTML;
+            container.style.display = 'grid';
+        }
+        
+        function generateServiceName(config) {
+            const port = config.tunnel_port;
+            const transport = config.transport;
+            const muxVersion = config.mux_version ? `-v${config.mux_version}` : '';
+            const profile = config.profile;
+            return `backhaul-iran${port}-${transport}${muxVersion}-${profile}`;
+        }
+        
+        function openWebPanel(ip, port) {
+            window.open(`http://${ip}:${port}`, '_blank');
+        }
+        
+        function copyCommand(action, serviceName, location) {
+            let command = '';
+            const locationSuffix = location === 'iran' ? 'iran' : 'kharej';
+            const fullServiceName = serviceName.replace('iran', locationSuffix);
+            
+            switch (action) {
+                case 'status':
+                    command = `systemctl status ${fullServiceName}.service`;
+                    break;
+                case 'start':
+                    command = `systemctl start ${fullServiceName}.service`;
+                    break;
+                case 'stop':
+                    command = `systemctl stop ${fullServiceName}.service`;
+                    break;
+                case 'restart':
+                    command = `systemctl restart ${fullServiceName}.service`;
+                    break;
+                case 'log':
+                    command = `journalctl -u ${fullServiceName}.service -f`;
+                    break;
+            }
+            
+            copyToClipboard(command);
+            showNotification(`✅ Command copied: ${command}`, 'success');
+        }
+        
+        function copyGlobalCommand(action) {
+            let command = '';
+            
+            switch (action) {
+                case 'extract':
+                    command = 'cd /root/backhaul-core && tar -xzf backhaul_premium.tar.gz && chmod +x backhaul_premium';
+                    break;
+                case 'restart':
+                    command = 'cd /root/backhaul-core && bash restart-services.sh';
+                    break;
+                case 'stop':
+                    command = 'cd /root/backhaul-core && bash stop-services.sh';
+                    break;
+                case 'remove':
+                    command = 'cd /root/backhaul-core && bash remove-services.sh';
+                    break;
+            }
+            
+            copyToClipboard(command);
+            showNotification('✅ Command copied! Paste in terminal', 'success');
+        }
+        
+        function filterConfigs() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const serverFilter = document.getElementById('serverFilter').value;
+            const transportFilter = document.getElementById('transportFilter').value;
+            const profileFilter = document.getElementById('profileFilter').value;
+            
+            const filtered = allConfigs.filter(config => {
+                const matchesSearch = 
+                    config.iran.toLowerCase().includes(searchTerm) ||
+                    config.kharej.toLowerCase().includes(searchTerm) ||
+                    config.transport.toLowerCase().includes(searchTerm) ||
+                    config.profile.toLowerCase().includes(searchTerm) ||
+                    config.tunnel_port.toString().includes(searchTerm);
+                
+                const matchesServer = !serverFilter || 
+                    config.iran === serverFilter || 
+                    config.kharej === serverFilter;
+                
+                const matchesTransport = !transportFilter || 
+                    config.transport === transportFilter;
+                
+                const matchesProfile = !profileFilter || 
+                    config.profile === profileFilter;
+                
+                return matchesSearch && matchesServer && matchesTransport && matchesProfile;
+            });
+            
+            renderConfigs(filtered);
+        }
+        
+        function copyToClipboard(text) {
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(text);
+            } else {
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                textarea.style.position = 'fixed';
+                textarea.style.opacity = '0';
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+            }
+        }
+        
+        function showNotification(message, type = 'success') {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = `notification ${type} show`;
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+        
+        function showTransportGuide() {
+            document.getElementById('transportModal').classList.add('show');
+        }
+        
+        function closeTransportGuide() {
+            document.getElementById('transportModal').classList.remove('show');
+        }
+        
+        window.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

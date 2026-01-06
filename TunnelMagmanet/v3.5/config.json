@@ -1,0 +1,97 @@
+{
+  "binary_config": {
+    "premium": {
+      "path": "/root/backhaul-core",
+      "filename": "backhaul_premium"
+    }
+  },
+
+  "settings": {
+    "tunnel_port_start": 100,
+    "web_port_start": 800,
+    "iperf_iran_port_start": 5001,
+    "iperf_kharej_port": 5201,
+    "excluded_ports": [22, 80, 443, 8080],
+    "subnet_start": "10.10.10.0/24",
+    "profiles": ["speed", "stable", "balanced"],
+    "token_per_connection": true
+  },
+
+  "iran_servers": [
+    {
+      "name": "Tehran-Main",
+      "ip": "87.107.185.76"
+    },
+    {
+      "name": "Shiraz-DC",
+      "ip": "91.107.185.77"
+    },
+    {
+      "name": "Mashhad-Hub",
+      "ip": "92.107.185.78"
+    }
+  ],
+
+  "kharej_servers": [
+    {
+      "name": "Germany-Hetzner",
+      "ip": "141.11.250.146"
+    },
+    {
+      "name": "France-OVH",
+      "ip": "151.80.231.147"
+    },
+    {
+      "name": "Netherlands-Vultr",
+      "ip": "45.76.142.148"
+    }
+  ],
+
+  "connections": [
+    {
+      "iran": "Tehran-Main",
+      "kharej": "Germany-Hetzner",
+      "transports": ["tcp", "tcpmux", "utcpmux", "ws", "wsmux", "uwsmux", "tcptun", "faketcptun"]
+    },
+    {
+      "iran": "Tehran-Main",
+      "kharej": "France-OVH",
+      "transports": ["tcp", "tcpmux", "ws", "wsmux", "tcptun"]
+    },
+    {
+      "iran": "Tehran-Main",
+      "kharej": "Netherlands-Vultr",
+      "transports": "all"
+    },
+    {
+      "iran": "Shiraz-DC",
+      "kharej": "Germany-Hetzner",
+      "transports": ["tcp", "utcpmux", "uwsmux", "faketcptun"]
+    },
+    {
+      "iran": "Shiraz-DC",
+      "kharej": "France-OVH",
+      "transports": ["tcpmux", "wsmux", "tcptun"]
+    },
+    {
+      "iran": "Shiraz-DC",
+      "kharej": "Netherlands-Vultr",
+      "transports": ["tcp", "ws", "udp", "tcptun", "faketcptun"]
+    },
+    {
+      "iran": "Mashhad-Hub",
+      "kharej": "Germany-Hetzner",
+      "transports": ["tcp", "tcpmux", "ws", "wsmux"]
+    },
+    {
+      "iran": "Mashhad-Hub",
+      "kharej": "France-OVH",
+      "transports": "all"
+    },
+    {
+      "iran": "Mashhad-Hub",
+      "kharej": "Netherlands-Vultr",
+      "transports": ["utcpmux", "uwsmux", "xtcpmux", "xwsmux", "tcptun", "faketcptun"]
+    }
+  ]
+}

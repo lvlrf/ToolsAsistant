@@ -2,7 +2,7 @@
   "binary_config": {
     "premium": {
       "path": "/root/backhaul-core",
-      "filename": "@lvlRF-Tunnel"
+      "filename": "backhaul_premium"
     }
   },
 
