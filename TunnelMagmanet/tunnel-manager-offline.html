@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>@lvlRF Tunnel Manager - Offline</title>
+    <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazir-font@v30.1.0/dist/font-face.css" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Vazir', sans-serif;
+            background: #f7fafc;
+            color: #2d3748;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .header h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        
+        .info-box {
+            background: #e6f3ff;
+            border-right: 4px solid #4299e1;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 10px 0;
+        }
+        
+        .section {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        
+        .section-title {
+            font-size: 1.2rem;
+            color: #667eea;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+        
+        .config-card {
+            background: #f7fafc;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .config-card h3 {
+            color: #2d3748;
+            margin-bottom: 10px;
+            font-size: 0.95rem;
+        }
+        
+        .config-info {
+            color: #718096;
+            font-size: 0.85rem;
+            margin-bottom: 15px;
+        }
+        
+        .command-block {
+            background: #1a202c;
+            color: #f7fafc;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            margin: 10px 0;
+            position: relative;
+            direction: ltr;
+            text-align: left;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        
+        .command-title {
+            color: #4299e1;
+            font-weight: 600;
+            margin: 15px 0 8px 0;
+        }
+        
+        .copy-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: 'Vazir', sans-serif;
+            font-size: 0.85rem;
+            margin: 5px 5px 5px 0;
+        }
+        
+        .copy-btn:hover {
+            background: #5568d3;
+        }
+        
+        .copy-btn:active {
+            background: #4c51bf;
+        }
+        
+        .btn-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin: 10px 0;
+        }
+        
+        .transport-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+        }
+        
+        .transport-card {
+            background: #f7fafc;
+            border-right: 4px solid #667eea;
+            padding: 15px;
+            border-radius: 6px;
+        }
+        
+        .transport-card h4 {
+            color: #667eea;
+            margin-bottom: 8px;
+        }
+        
+        .transport-card ul {
+            list-style: none;
+            padding-right: 0;
+        }
+        
+        .transport-card li {
+            padding: 4px 0;
+            color: #4a5568;
+        }
+        
+        .transport-card li:before {
+            content: "✓ ";
+            color: #48bb78;
+            font-weight: bold;
+        }
+        
+        .file-input {
+            background: #667eea;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            display: inline-block;
+            font-weight: 600;
+        }
+        
+        .file-input:hover {
+            background: #5568d3;
+        }
+        
+        input[type="file"] {
+            display: none;
+        }
+        
+        .success-msg {
+            background: #c6f6d5;
+            color: #22543d;
+            padding: 10px 15px;
+            border-radius: 6px;
+            margin: 10px 0;
+        }
+        
+        .error-msg {
+            background: #fed7d7;
+            color: #742a2a;
+            padding: 10px 15px;
+            border-radius: 6px;
+            margin: 10px 0;
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            border: none;
+            background: none;
+            font-family: 'Vazir', sans-serif;
+            font-size: 1rem;
+            color: #718096;
+            border-bottom: 3px solid transparent;
+        }
+        
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+            font-weight: 600;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 @lvlRF Tunnel Manager - آفلاین</h1>
+            <div class="info-box">
+                <strong>📁 بارگذاری فایل state.json:</strong>
+                <label for="stateFile" class="file-input">انتخاب فایل state.json</label>
+                <input type="file" id="stateFile" accept=".json">
+                <div id="loadStatus"></div>
+            </div>
+        </div>
+        
+        <div class="tabs">
+            <button class="tab active" onclick="showTab('configs')">کانفیگ‌ها و دستورات</button>
+            <button class="tab" onclick="showTab('transports')">راهنمای Transport ها</button>
+            <button class="tab" onclick="showTab('optimize')">بهینه‌سازی سرور</button>
+            <button class="tab" onclick="showTab('dashboard')">مدیریت Dashboard</button>
+        </div>
+        
+        <div id="configsTab" class="tab-content active">
+            <div class="section">
+                <h2 class="section-title">لیست کانفیگ‌ها و دستورات</h2>
+                <div id="configsContainer"></div>
+            </div>
+        </div>
+        
+        <div id="transportsTab" class="tab-content">
+            <div class="section">
+                <h2 class="section-title">راهنمای Transport ها</h2>
+                <div class="transport-grid">
+                    <div class="transport-card">
+                        <h4>TCP</h4>
+                        <ul>
+                            <li>ساده‌ترین روش</li>
+                            <li>مناسب برای شبکه‌های پایدار</li>
+                            <li>سرعت بالا</li>
+                        </ul>
+                    </div>
+                    <div class="transport-card">
+                        <h4>TCPMUX</h4>
+                        <ul>
+                            <li>Multiplexing روی TCP</li>
+                            <li>چند connection روی یک port</li>
+                            <li>V1: smux، V2: yamux</li>
+                        </ul>
+                    </div>
+                    <div class="transport-card">
+                        <h4>WS / WSMUX</h4>
+                        <ul>
+                            <li>WebSocket</li>
+                            <li>عبور از فایروال</li>
+                            <li>مناسب محیط محدود</li>
+                        </ul>
+                    </div>
+                    <div class="transport-card">
+                        <h4>UDP</h4>
+                        <ul>
+                            <li>بدون connection</li>
+                            <li>Latency کمتر</li>
+                            <li>مناسب Gaming/VoIP</li>
+                        </ul>
+                    </div>
+                    <div class="transport-card">
+                        <h4>TUN ها (tcptun, wstun, udptun)</h4>
+                        <ul>
+                            <li>Layer 3 Tunneling</li>
+                            <li>IP forwarding</li>
+                            <li>مناسب شبکه کامل</li>
+                        </ul>
+                    </div>
+                    <div class="transport-card">
+                        <h4>Profile ها</h4>
+                        <ul>
+                            <li><strong>speed:</strong> سرعت بالا</li>
+                            <li><strong>stable:</strong> پایداری در شبکه ناپایدار</li>
+                            <li><strong>balanced:</strong> تعادل</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="optimizeTab" class="tab-content">
+            <div class="section">
+                <h2 class="section-title">اسکریپت بهینه‌سازی سرور</h2>
+                
+                <div class="command-title">🇮🇷 بهینه‌سازی سرور ایران:</div>
+                <div class="command-block">bash optimize-iran.sh</div>
+                <button class="copy-btn" onclick="copyText('bash optimize-iran.sh')">کپی</button>
+                
+                <div class="command-title">🌍 بهینه‌سازی سرور خارج:</div>
+                <div class="command-block">bash optimize-kharej.sh</div>
+                <button class="copy-btn" onclick="copyText('bash optimize-kharej.sh')">کپی</button>
+                
+                <div class="info-box" style="margin-top: 20px;">
+                    <strong>نکته:</strong> این اسکریپت‌ها تنظیمات kernel را برای بهبود عملکرد تانل بهینه می‌کنند.
+                    شامل: TCP BBR، Buffer Sizes، File Descriptors و...
+                </div>
+            </div>
+        </div>
+        
+        <div id="dashboardTab" class="tab-content">
+            <div class="section">
+                <h2 class="section-title">مدیریت Dashboard</h2>
+                
+                <div class="command-title">📦 نصب Dashboard:</div>
+                <div class="command-block">sudo bash install-dashboard.sh</div>
+                <button class="copy-btn" onclick="copyText('sudo bash install-dashboard.sh')">کپی</button>
+                
+                <div class="command-title">📊 وضعیت Dashboard:</div>
+                <div class="command-block">systemctl status lvlrf-dashboard</div>
+                <button class="copy-btn" onclick="copyText('systemctl status lvlrf-dashboard')">کپی</button>
+                
+                <div class="command-title">▶️ استارت Dashboard:</div>
+                <div class="command-block">systemctl start lvlrf-dashboard</div>
+                <button class="copy-btn" onclick="copyText('systemctl start lvlrf-dashboard')">کپی</button>
+                
+                <div class="command-title">⏸️ استاپ Dashboard:</div>
+                <div class="command-block">systemctl stop lvlrf-dashboard</div>
+                <button class="copy-btn" onclick="copyText('systemctl stop lvlrf-dashboard')">کپی</button>
+                
+                <div class="command-title">🔄 ری‌استارت Dashboard:</div>
+                <div class="command-block">systemctl restart lvlrf-dashboard</div>
+                <button class="copy-btn" onclick="copyText('systemctl restart lvlrf-dashboard')">کپی</button>
+                
+                <div class="command-title">📜 لاگ‌های Dashboard:</div>
+                <div class="command-block">journalctl -u lvlrf-dashboard -f</div>
+                <button class="copy-btn" onclick="copyText('journalctl -u lvlrf-dashboard -f')">کپی</button>
+                
+                <div class="command-title">🗑️ حذف Dashboard:</div>
+                <div class="command-block">systemctl stop lvlrf-dashboard
+systemctl disable lvlrf-dashboard
+rm /etc/systemd/system/lvlrf-dashboard.service
+systemctl daemon-reload</div>
+                <button class="copy-btn" onclick="copyText('systemctl stop lvlrf-dashboard && systemctl disable lvlrf-dashboard && rm /etc/systemd/system/lvlrf-dashboard.service && systemctl daemon-reload')">کپی</button>
+                
+                <div class="command-title">🔧 ویرایش تنظیمات Dashboard:</div>
+                <div class="command-block">nano /var/lib/@lvlRF-Tunnel/dashboard.py
+# تغییر خط 11 و 12:
+# DASHBOARD_PORT = 8000
+# DASHBOARD_PASSWORD = "your-password"</div>
+                <button class="copy-btn" onclick="copyText('nano /var/lib/@lvlRF-Tunnel/dashboard.py')">کپی</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let configs = [];
+        
+        document.getElementById('stateFile').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    configs = data.generated_configs || [];
+                    document.getElementById('loadStatus').innerHTML = 
+                        `<div class="success-msg">✅ ${configs.length} کانفیگ بارگذاری شد</div>`;
+                    renderConfigs();
+                } catch (err) {
+                    document.getElementById('loadStatus').innerHTML = 
+                        `<div class="error-msg">❌ خطا در خواندن فایل: ${err.message}</div>`;
+                }
+            };
+            reader.readAsText(file);
+        });
+        
+        function renderConfigs() {
+            const container = document.getElementById('configsContainer');
+            
+            if (configs.length === 0) {
+                container.innerHTML = '<div class="info-box">هیچ کانفیگی بارگذاری نشده است. لطفاً فایل state.json را انتخاب کنید.</div>';
+                return;
+            }
+            
+            container.innerHTML = configs.map(cfg => {
+                const serviceName = generateServiceName(cfg);
+                const configFile = `${serviceName}.toml`;
+                const binary = '@lvlRF-Tunnel';
+                const path = '/var/lib/@lvlRF-Tunnel';
+                
+                return `
+                    <div class="config-card">
+                        <h3>${serviceName}</h3>
+                        <div class="config-info">
+                            ${cfg.iran} (${cfg.iran_ip || 'N/A'}) ↔ ${cfg.kharej} (${cfg.kharej_ip || 'N/A'})
+                            <br>
+                            Transport: ${cfg.transport.toUpperCase()}${cfg.mux_version ? '-V'+cfg.mux_version : ''} | 
+                            Profile: ${cfg.profile.toUpperCase()} | 
+                            Port: ${cfg.tunnel_port} | Web: ${cfg.web_port}
+                        </div>
+                        
+                        <div class="command-title">📦 نصب سرویس:</div>
+                        <div class="command-block">cat > /etc/systemd/system/${serviceName}.service << 'EOF'
+[Unit]
+Description=Backhaul Tunnel ${serviceName}
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=${path}
+ExecStart=${path}/${binary} -c ${path}/${configFile}
+Restart=always
+RestartSec=3
+LimitNOFILE=1048576
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable ${serviceName}.service
+systemctl start ${serviceName}.service</div>
+                        <button class="copy-btn" onclick="copyInstall('${serviceName}', '${path}', '${binary}', '${configFile}')">کپی دستور نصب</button>
+                        
+                        <div class="btn-group">
+                            <button class="copy-btn" onclick="copyText('systemctl start ${serviceName}.service')">▶️ Start</button>
+                            <button class="copy-btn" onclick="copyText('systemctl stop ${serviceName}.service')">⏸️ Stop</button>
+                            <button class="copy-btn" onclick="copyText('systemctl restart ${serviceName}.service')">🔄 Restart</button>
+                            <button class="copy-btn" onclick="copyText('systemctl status ${serviceName}.service')">📊 Status</button>
+                            <button class="copy-btn" onclick="copyText('journalctl -u ${serviceName}.service -f')">📜 Logs</button>
+                        </div>
+                        
+                        <div class="command-title">🚫 Disable سرویس:</div>
+                        <div class="btn-group">
+                            <button class="copy-btn" onclick="copyText('systemctl stop ${serviceName}.service && systemctl disable ${serviceName}.service')">Disable</button>
+                        </div>
+                        
+                        <div class="command-title">🗑️ حذف کامل سرویس:</div>
+                        <div class="btn-group">
+                            <button class="copy-btn" onclick="copyRemove('${serviceName}', '${path}', '${configFile}')">حذف Service</button>
+                            <button class="copy-btn" onclick="copyText('rm ${path}/${configFile}')">حذف Config</button>
+                        </div>
+                        
+                        ${cfg.iperf_port ? `
+                        <div class="command-title">⚡ تست سرعت:</div>
+                        <div class="command-block"># Iran Server:
+iperf3 -s -B 127.0.0.1 -p ${cfg.iperf_port}
+
+# Kharej Server (download test):
+iperf3 -c 127.0.0.1 -p ${cfg.iperf_port} -t 30
+
+# Kharej Server (upload test):
+iperf3 -c 127.0.0.1 -p ${cfg.iperf_port} -t 30 -R</div>
+                        <button class="copy-btn" onclick="copyText('iperf3 -s -B 127.0.0.1 -p ${cfg.iperf_port}')">کپی (Iran)</button>
+                        <button class="copy-btn" onclick="copyText('iperf3 -c 127.0.0.1 -p ${cfg.iperf_port} -t 30')">کپی (Download)</button>
+                        <button class="copy-btn" onclick="copyText('iperf3 -c 127.0.0.1 -p ${cfg.iperf_port} -t 30 -R')">کپی (Upload)</button>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        function generateServiceName(cfg) {
+            let name = `lvlRF-Tunnel-${cfg.iran}-${cfg.kharej}-${cfg.tunnel_port}-${cfg.transport}`;
+            if (cfg.mux_version) {
+                name += `-v${cfg.mux_version}`;
+            }
+            name += `-${cfg.profile}`;
+            return name;
+        }
+        
+        function copyInstall(service, path, binary, config) {
+            const text = `cat > /etc/systemd/system/${service}.service << 'EOF'
+[Unit]
+Description=Backhaul Tunnel ${service}
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=${path}
+ExecStart=${path}/${binary} -c ${path}/${config}
+Restart=always
+RestartSec=3
+LimitNOFILE=1048576
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable ${service}.service
+systemctl start ${service}.service`;
+            
+            copyText(text);
+        }
+        
+        function copyRemove(service, path, config) {
+            const text = `systemctl stop ${service}.service
+systemctl disable ${service}.service
+rm /etc/systemd/system/${service}.service
+systemctl daemon-reload`;
+            
+            copyText(text);
+        }
+        
+        function copyText(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                showNotification('✅ کپی شد!');
+            }).catch(() => {
+                // Fallback
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                showNotification('✅ کپی شد!');
+            });
+        }
+        
+        function showNotification(message) {
+            const notif = document.createElement('div');
+            notif.className = 'success-msg';
+            notif.textContent = message;
+            notif.style.position = 'fixed';
+            notif.style.top = '20px';
+            notif.style.right = '20px';
+            notif.style.zIndex = '9999';
+            document.body.appendChild(notif);
+            
+            setTimeout(() => {
+                notif.remove();
+            }, 2000);
+        }
+        
+        function showTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show selected tab
+            document.getElementById(tabName + 'Tab').classList.add('active');
+            event.target.classList.add('active');
+        }
+        
+        // Try to load state.json automatically if in same directory
+        fetch('state.json')
+            .then(r => r.json())
+            .then(data => {
+                configs = data.generated_configs || [];
+                document.getElementById('loadStatus').innerHTML = 
+                    `<div class="success-msg">✅ ${configs.length} کانفیگ بارگذاری شد (خودکار)</div>`;
+                renderConfigs();
+            })
+            .catch(() => {
+                // If auto-load fails, show message
+                document.getElementById('configsContainer').innerHTML = 
+                    '<div class="info-box">📁 لطفاً فایل state.json را انتخاب کنید (دکمه بالا)</div>';
+            });
+    </script>
+</body>
+</html>

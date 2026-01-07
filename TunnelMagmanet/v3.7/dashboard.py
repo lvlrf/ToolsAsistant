@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """
-@lvlRF Tunnel Management Dashboard v2.3
-Complete web-based dashboard with modals and real-time control
+@lvlRF Tunnel Management Dashboard
+Web-based dashboard for managing tunnel services
 """
 
 # ============================================================================
-# CONFIGURATION
+# CONFIGURATION - تنظیمات اصلی
 # ============================================================================
 
 DASHBOARD_PORT = 8000
 DASHBOARD_PASSWORD = "your-secure-password-here"  # ⚠️ حتماً تغییر بده!
 AUTO_REFRESH_SECONDS = 3
-BINARY_PATH = "/var/lib/@lvlRF-Tunnel"
+BINARY_PATH = "/root/backhaul-core"
 STATE_FILE = f"{BINARY_PATH}/state.json"
 CONFIG_FILE = f"{BINARY_PATH}/config.json"
 
@@ -21,7 +21,6 @@ from flask import Flask, render_template_string, request, jsonify, session, redi
 import subprocess
 import json
 import os
-import re
 from functools import wraps
 from datetime import datetime, timedelta
 import secrets
@@ -121,7 +120,7 @@ def get_configs():
 @app.route('/api/service/<action>/<service_name>')
 @login_required
 def service_action(action, service_name):
-    """Perform action on service and return result"""
+    """Perform action on service"""
     try:
         if action == 'start':
             cmd = ['systemctl', 'start', f'{service_name}.service']
@@ -130,16 +129,14 @@ def service_action(action, service_name):
         elif action == 'restart':
             cmd = ['systemctl', 'restart', f'{service_name}.service']
         elif action == 'status':
-            cmd = ['systemctl', 'status', f'{service_name}.service']
+            return jsonify(get_service_status_detail(service_name))
         else:
             return jsonify({'success': False, 'error': 'Invalid action'})
         
         result = subprocess.run(cmd, capture_output=True, text=True)
-        
         return jsonify({
             'success': result.returncode == 0,
-            'output': result.stdout if result.returncode == 0 else result.stderr,
-            'command': ' '.join(cmd)
+            'message': f'Service {action}ed successfully' if result.returncode == 0 else result.stderr
         })
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
@@ -151,166 +148,44 @@ def get_logs(service_name):
     try:
         cmd = ['journalctl', '-u', f'{service_name}.service', '-n', '100', '--no-pager']
         result = subprocess.run(cmd, capture_output=True, text=True)
-        
-        # Command for user to copy
-        copy_cmd = f"journalctl -u {service_name}.service -f"
-        
         return jsonify({
             'success': True,
-            'logs': result.stdout,
-            'command': copy_cmd
+            'logs': result.stdout
         })
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
-@app.route('/api/remove-service/<service_name>', methods=['POST'])
+@app.route('/api/edit-port', methods=['POST'])
 @login_required
-def remove_service(service_name):
-    """Remove service (stop, disable, delete)"""
-    try:
-        commands = [
-            ['systemctl', 'stop', f'{service_name}.service'],
-            ['systemctl', 'disable', f'{service_name}.service'],
-            ['rm', f'/etc/systemd/system/{service_name}.service'],
-            ['systemctl', 'daemon-reload']
-        ]
-        
-        output_lines = []
-        for cmd in commands:
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            output_lines.append(f"$ {' '.join(cmd)}")
-            if result.stdout:
-                output_lines.append(result.stdout)
-            if result.stderr:
-                output_lines.append(result.stderr)
-        
-        return jsonify({
-            'success': True,
-            'output': '\n'.join(output_lines),
-            'message': 'Service removed successfully'
-        })
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
-
-@app.route('/api/remove-file/<service_name>', methods=['POST'])
-@login_required
-def remove_file(service_name):
-    """Remove config file"""
-    try:
-        config_file = f"{BINARY_PATH}/{service_name}.toml"
-        
-        if os.path.exists(config_file):
-            os.remove(config_file)
-            return jsonify({
-                'success': True,
-                'message': f'Config file removed: {config_file}'
-            })
-        else:
-            return jsonify({
-                'success': False,
-                'error': 'Config file not found'
-            })
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
-
-@app.route('/api/get-ports/<service_name>')
-@login_required
-def get_ports(service_name):
-    """Get current ports from config file"""
-    try:
-        config_file = f"{BINARY_PATH}/{service_name}.toml"
-        
-        if not os.path.exists(config_file):
-            return jsonify({'success': False, 'error': 'Config file not found'})
-        
-        with open(config_file, 'r') as f:
-            content = f.read()
-        
-        # Extract ports
-        tunnel_port = None
-        web_port = None
-        iperf_port = None
-        forward_ports = []
-        
-        # Tunnel port (bind_addr or remote_addr)
-        bind_match = re.search(r'bind_addr\s*=\s*"[^:]+:(\d+)"', content)
-        remote_match = re.search(r'remote_addr\s*=\s*"[^:]+:(\d+)"', content)
-        if bind_match:
-            tunnel_port = bind_match.group(1)
-        elif remote_match:
-            tunnel_port = remote_match.group(1)
-        
-        # Web port
-        web_match = re.search(r'web_port\s*=\s*(\d+)', content)
-        if web_match:
-            web_port = web_match.group(1)
-        
-        # Forward ports
-        ports_match = re.findall(r'ports\s*=\s*\[(.*?)\]', content, re.DOTALL)
-        if ports_match:
-            ports_str = ports_match[0]
-            port_entries = re.findall(r'"(\d+)=([^"]+)"', ports_str)
-            for external, internal in port_entries:
-                forward_ports.append({'external': external, 'internal': internal})
-                if 'iperf' in service_name.lower() or internal.endswith(':5201'):
-                    iperf_port = external
-        
-        return jsonify({
-            'success': True,
-            'tunnel_port': tunnel_port,
-            'web_port': web_port,
-            'iperf_port': iperf_port,
-            'forward_ports': forward_ports
-        })
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
-
-@app.route('/api/edit-ports', methods=['POST'])
-@login_required
-def edit_ports():
+def edit_port():
     """Edit ports in config file and restart service"""
     try:
         data = request.json
         service_name = data['service_name']
         new_tunnel_port = data['tunnel_port']
         new_web_port = data['web_port']
-        new_iperf_port = data.get('iperf_port', '')
+        new_iperf_port = data['iperf_port']
         
-        config_file = f"{BINARY_PATH}/{service_name}.toml"
-        
-        if not os.path.exists(config_file):
+        # Find config file
+        config_file = find_config_file(service_name)
+        if not config_file:
             return jsonify({'success': False, 'error': 'Config file not found'})
         
-        # Read config
+        # Read and modify config
         with open(config_file, 'r') as f:
             content = f.read()
         
-        # Replace tunnel port
-        content = re.sub(
-            r'(bind_addr\s*=\s*"[^:]+:)\d+(")',
-            f'\\g<1>{new_tunnel_port}\\g<2>',
-            content
-        )
-        content = re.sub(
-            r'(remote_addr\s*=\s*"[^:]+:)\d+(")',
-            f'\\g<1>{new_tunnel_port}\\g<2>',
-            content
-        )
+        # Replace ports (simple regex replacement)
+        import re
+        content = re.sub(r'bind_addr = "0\.0\.0\.0:\d+"', 
+                        f'bind_addr = "0.0.0.0:{new_tunnel_port}"', content)
+        content = re.sub(r'remote_addr = "[^:]+:\d+"',
+                        lambda m: m.group(0).rsplit(':', 1)[0] + f':{new_tunnel_port}"', content)
+        content = re.sub(r'web_port = \d+', f'web_port = {new_web_port}', content)
         
-        # Replace web port
-        content = re.sub(
-            r'web_port\s*=\s*\d+',
-            f'web_port = {new_web_port}',
-            content
-        )
-        
-        # Replace iperf port in forwards
-        if new_iperf_port:
-            content = re.sub(
-                r'"(\d+)=(127\.0\.0\.1:5201)"',
-                f'"{new_iperf_port}=127.0.0.1:5201"',
-                content
-            )
+        # Update iperf port in ports array
+        content = re.sub(r'"\d+=127\.0\.0\.1:\d+"',
+                        f'"{new_iperf_port}=127.0.0.1:5201"', content)
         
         # Write back
         with open(config_file, 'w') as f:
@@ -319,10 +194,40 @@ def edit_ports():
         # Restart service
         subprocess.run(['systemctl', 'restart', f'{service_name}.service'])
         
-        return jsonify({
-            'success': True,
-            'message': 'Ports updated and service restarted'
-        })
+        # Update state.json
+        update_state_file(service_name, new_tunnel_port, new_web_port, new_iperf_port)
+        
+        return jsonify({'success': True, 'message': 'Ports updated and service restarted'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/dashboard/control/<action>')
+@login_required
+def dashboard_control(action):
+    """Enable or disable dashboard service"""
+    try:
+        if action == 'enable':
+            subprocess.run(['systemctl', 'enable', 'lvlrf-dashboard.service'])
+            subprocess.run(['systemctl', 'start', 'lvlrf-dashboard.service'])
+            message = 'Dashboard service enabled'
+        elif action == 'disable':
+            subprocess.run(['systemctl', 'disable', 'lvlrf-dashboard.service'])
+            subprocess.run(['systemctl', 'stop', 'lvlrf-dashboard.service'])
+            message = 'Dashboard service disabled'
+        elif action == 'status':
+            result = subprocess.run(['systemctl', 'is-active', 'lvlrf-dashboard.service'],
+                                  capture_output=True, text=True)
+            enabled = subprocess.run(['systemctl', 'is-enabled', 'lvlrf-dashboard.service'],
+                                   capture_output=True, text=True)
+            return jsonify({
+                'success': True,
+                'active': result.stdout.strip() == 'active',
+                'enabled': enabled.stdout.strip() == 'enabled'
+            })
+        else:
+            return jsonify({'success': False, 'error': 'Invalid action'})
+        
+        return jsonify({'success': True, 'message': message})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
@@ -367,14 +272,12 @@ def bulk_action(action):
 
 def generate_service_name(cfg):
     """Generate service name from config"""
-    iran_name = cfg['iran']
-    kharej_name = cfg['kharej']
     port = cfg['tunnel_port']
     transport = cfg['transport']
     mux_version = cfg.get('mux_version')
     profile = cfg['profile']
     
-    name = f"lvlRF-Tunnel-{iran_name}-{kharej_name}-{port}-{transport}"
+    name = f"@lvlRF-Tunnel-{port}-{transport}"
     if mux_version:
         name += f"-v{mux_version}"
     name += f"-{profile}"
@@ -393,6 +296,54 @@ def get_service_status(service_name):
         return status if status in ['active', 'inactive', 'failed'] else 'unknown'
     except:
         return 'unknown'
+
+def get_service_status_detail(service_name):
+    """Get detailed service status"""
+    try:
+        result = subprocess.run(
+            ['systemctl', 'status', f'{service_name}.service'],
+            capture_output=True,
+            text=True
+        )
+        return {
+            'success': True,
+            'status': result.stdout,
+            'returncode': result.returncode
+        }
+    except Exception as e:
+        return {'success': False, 'error': str(e)}
+
+def find_config_file(service_name):
+    """Find config file for service"""
+    # Extract info from service name: @lvlRF-Tunnel-100-tcp-speed
+    parts = service_name.replace('@lvlRF-Tunnel-', '').split('-')
+    port = parts[0]
+    
+    # Try iran config
+    for prefix in ['iran', 'kharej']:
+        config_path = f"{BINARY_PATH}/{prefix}{port}-{'-'.join(parts[1:])}.toml"
+        if os.path.exists(config_path):
+            return config_path
+    
+    return None
+
+def update_state_file(service_name, tunnel_port, web_port, iperf_port):
+    """Update state.json with new ports"""
+    try:
+        with open(STATE_FILE, 'r') as f:
+            state = json.load(f)
+        
+        for cfg in state['generated_configs']:
+            if generate_service_name(cfg) == service_name:
+                cfg['tunnel_port'] = int(tunnel_port)
+                cfg['web_port'] = int(web_port)
+                cfg['iperf_port'] = int(iperf_port)
+                break
+        
+        with open(STATE_FILE, 'w') as f:
+            json.dump(state, f, indent=2)
+    except:
+        pass
 
 # ============================================================================
 # HTML Templates
@@ -459,7 +410,7 @@ LOGIN_TEMPLATE = '''
 </head>
 <body>
     <div class="login-container">
-        <h1>🚀 @lvlRF Tunnel Dashboard</h1>
+        <h1>🚀 داشبورد تانل</h1>
         {% if error %}
         <div class="error">{{ error }}</div>
         {% endif %}
@@ -623,9 +574,8 @@ DASHBOARD_TEMPLATE = '''
         }
         
         .config-header h3 {
-            font-size: 0.9rem;
+            font-size: 1rem;
             margin-bottom: 8px;
-            word-break: break-word;
         }
         
         .config-info {
@@ -689,10 +639,6 @@ DASHBOARD_TEMPLATE = '''
             margin-bottom: 10px;
         }
         
-        .button-row.single {
-            grid-template-columns: 1fr;
-        }
-        
         .button-row:last-child {
             margin-bottom: 0;
         }
@@ -734,7 +680,6 @@ DASHBOARD_TEMPLATE = '''
         
         .modal-header h2 {
             color: var(--accent);
-            font-size: 1.2rem;
         }
         
         .close-btn {
@@ -755,8 +700,6 @@ DASHBOARD_TEMPLATE = '''
             font-size: 0.85rem;
             direction: ltr;
             text-align: left;
-            white-space: pre-wrap;
-            word-wrap: break-word;
         }
         
         .form-group {
@@ -807,44 +750,6 @@ DASHBOARD_TEMPLATE = '''
             font-size: 1.5rem;
         }
         
-        .test-section {
-            margin-bottom: 25px;
-            padding: 15px;
-            background: var(--bg-primary);
-            border-radius: 8px;
-        }
-        
-        .test-section h3 {
-            margin-bottom: 15px;
-            color: var(--accent);
-        }
-        
-        .test-step {
-            margin-bottom: 15px;
-        }
-        
-        .test-step p {
-            margin-bottom: 8px;
-            font-weight: 600;
-        }
-        
-        .code-block {
-            position: relative;
-        }
-        
-        .copy-btn {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            padding: 5px 10px;
-            background: var(--accent);
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 0.8rem;
-        }
-        
         @media (max-width: 768px) {
             .configs-grid { grid-template-columns: 1fr; }
             .action-grid { grid-template-columns: 1fr; }
@@ -858,6 +763,7 @@ DASHBOARD_TEMPLATE = '''
         <div class="header-actions">
             <span id="refresh-status">Auto-refresh: {{ refresh_interval }}s</span>
             <button class="btn btn-small btn-secondary" onclick="toggleDarkMode()">🌙</button>
+            <button class="btn btn-small btn-info" onclick="showDashboardControl()">⚙️ Dashboard</button>
             <button class="btn btn-small btn-danger" onclick="logout()">خروج</button>
         </div>
     </div>
@@ -896,30 +802,12 @@ DASHBOARD_TEMPLATE = '''
     
     <div id="notification" class="notification"></div>
     
-    <!-- Action Result Modal -->
-    <div id="resultModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 id="resultTitle">نتیجه عملیات</h2>
-                <button class="close-btn" onclick="closeModal('resultModal')">✕</button>
-            </div>
-            <pre id="resultOutput"></pre>
-            <div style="margin-top: 15px;">
-                <button class="btn btn-info" onclick="copyModalCommand()">کپی دستور</button>
-            </div>
-        </div>
-    </div>
-    
     <!-- Logs Modal -->
     <div id="logsModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
                 <h2>لاگ‌ها</h2>
                 <button class="close-btn" onclick="closeModal('logsModal')">✕</button>
-            </div>
-            <div style="margin-bottom: 15px;">
-                <button class="btn btn-info btn-small" onclick="copyLogsCommand()">کپی دستور</button>
-                <button class="btn btn-success btn-small" onclick="refreshLogs()">Refresh</button>
             </div>
             <pre id="logsContent"></pre>
         </div>
@@ -935,30 +823,17 @@ DASHBOARD_TEMPLATE = '''
             <form id="editForm" onsubmit="saveEdit(event)">
                 <input type="hidden" id="edit-service">
                 <div class="form-group">
-                    <label>پورت فعلی Tunnel:</label>
-                    <input type="text" id="current-tunnel-port" readonly style="background: #eee;">
-                </div>
-                <div class="form-group">
-                    <label>پورت جدید Tunnel:</label>
+                    <label>پورت تانل:</label>
                     <input type="number" id="edit-tunnel-port" required>
                 </div>
                 <div class="form-group">
-                    <label>پورت فعلی Web:</label>
-                    <input type="text" id="current-web-port" readonly style="background: #eee;">
-                </div>
-                <div class="form-group">
-                    <label>پورت جدید Web:</label>
+                    <label>پورت وب:</label>
                     <input type="number" id="edit-web-port" required>
                 </div>
                 <div class="form-group">
-                    <label>پورت فعلی iperf:</label>
-                    <input type="text" id="current-iperf-port" readonly style="background: #eee;">
+                    <label>پورت iperf:</label>
+                    <input type="number" id="edit-iperf-port" required>
                 </div>
-                <div class="form-group">
-                    <label>پورت جدید iperf:</label>
-                    <input type="number" id="edit-iperf-port">
-                </div>
-                <div id="forward-ports-display" style="margin-top: 15px;"></div>
                 <button type="submit" class="btn btn-success">ذخیره و ری‌استارت</button>
             </form>
         </div>
@@ -975,12 +850,34 @@ DASHBOARD_TEMPLATE = '''
         </div>
     </div>
     
+    <!-- Dashboard Control Modal -->
+    <div id="dashboardModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>مدیریت Dashboard Service</h2>
+                <button class="close-btn" onclick="closeModal('dashboardModal')">✕</button>
+            </div>
+            <div id="dashboardStatus" style="margin-bottom: 20px;"></div>
+            <div class="button-row">
+                <button class="btn btn-success" onclick="dashboardControl('enable')">فعال‌سازی</button>
+                <button class="btn btn-danger" onclick="dashboardControl('disable')">غیرفعال‌سازی</button>
+            </div>
+            <hr style="margin: 20px 0;">
+            <h3 style="margin-bottom: 10px;">دستورات دستی:</h3>
+            <pre>systemctl enable lvlrf-dashboard.service
+systemctl start lvlrf-dashboard.service
+
+systemctl disable lvlrf-dashboard.service
+systemctl stop lvlrf-dashboard.service
+
+systemctl status lvlrf-dashboard.service</pre>
+        </div>
+    </div>
+    
     <script>
         let allConfigs = [];
         let refreshInterval = {{ refresh_interval }} * 1000;
         let refreshTimer;
-        let currentModalCommand = '';
-        let currentLogsService = '';
         
         function loadConfigs() {
             fetch('/api/configs')
@@ -1089,21 +986,13 @@ DASHBOARD_TEMPLATE = '''
                                     <button class="btn btn-secondary btn-small" onclick="showLogs('${cfg.service_name}')">
                                         📜 لاگ
                                     </button>
-                                    <button class="btn btn-info btn-small" onclick="showEdit('${cfg.service_name}')">
+                                    <button class="btn btn-info btn-small" onclick="showEdit('${cfg.service_name}', ${cfg.tunnel_port}, ${cfg.web_port}, ${cfg.iperf_port})">
                                         ✏️ ویرایش
                                     </button>
                                 </div>
                                 <div class="button-row">
                                     <button class="btn btn-primary btn-small" onclick="showTestSpeed(${cfg.iperf_port}, '${cfg.iran}', '${cfg.kharej}')">
                                         ⚡ تست سرعت
-                                    </button>
-                                </div>
-                                <div class="button-row">
-                                    <button class="btn btn-danger btn-small" onclick="removeService('${cfg.service_name}')">
-                                        🗑️ حذف سرویس
-                                    </button>
-                                    <button class="btn btn-danger btn-small" onclick="removeFile('${cfg.service_name}')">
-                                        🗑️ حذف فایل
                                     </button>
                                 </div>
                             </div>
@@ -1118,12 +1007,6 @@ DASHBOARD_TEMPLATE = '''
             const server = document.getElementById('serverFilter').value;
             const transport = document.getElementById('transportFilter').value;
             const status = document.getElementById('statusFilter').value;
-            
-            // Save filters
-            localStorage.setItem('dashFilter_search', search);
-            localStorage.setItem('dashFilter_server', server);
-            localStorage.setItem('dashFilter_transport', transport);
-            localStorage.setItem('dashFilter_status', status);
             
             const filtered = allConfigs.filter(cfg => {
                 const matchSearch = cfg.service_name.toLowerCase().includes(search) ||
@@ -1147,25 +1030,23 @@ DASHBOARD_TEMPLATE = '''
             fetch(`/api/service/${action}/${service}`)
                 .then(r => r.json())
                 .then(data => {
-                    currentModalCommand = data.command || '';
-                    
-                    document.getElementById('resultTitle').textContent = `نتیجه ${action}`;
-                    document.getElementById('resultOutput').textContent = data.output || data.error || 'No output';
-                    showModal('resultModal');
-                    
-                    // Auto copy command
-                    if (data.command) {
-                        copyToClipboard(data.command);
+                    if (data.success) {
+                        showNotification(`✅ ${action} انجام شد`, 'success');
+                        if (action !== 'status') {
+                            setTimeout(loadConfigs, 1000);
+                        }
+                    } else {
+                        showNotification(`❌ خطا: ${data.error || data.message}`, 'error');
                     }
                     
-                    if (data.success && action !== 'status') {
-                        setTimeout(loadConfigs, 1000);
+                    if (action === 'status' && data.status) {
+                        alert(data.status);
                     }
                 });
         }
         
         function bulkAction(action) {
-            if (!confirm(`آیا مطمئن هستید که می‌خواهید همه سرویس‌ها را ${action} کنید؟`)) return;
+            if (!confirm(`آیا مطمئن هستید؟`)) return;
             
             fetch(`/api/bulk/${action}`)
                 .then(r => r.json())
@@ -1180,63 +1061,24 @@ DASHBOARD_TEMPLATE = '''
         }
         
         function showLogs(service) {
-            currentLogsService = service;
             fetch(`/api/logs/${service}`)
                 .then(r => r.json())
                 .then(data => {
                     if (data.success) {
                         document.getElementById('logsContent').textContent = data.logs;
-                        currentModalCommand = data.command;
                         showModal('logsModal');
-                        
-                        // Auto copy command
-                        copyToClipboard(data.command);
                     } else {
                         showNotification(`❌ خطا: ${data.error}`, 'error');
                     }
                 });
         }
         
-        function refreshLogs() {
-            if (currentLogsService) {
-                showLogs(currentLogsService);
-            }
-        }
-        
-        function copyLogsCommand() {
-            copyToClipboard(currentModalCommand);
-            showNotification('✅ دستور کپی شد', 'success');
-        }
-        
-        function showEdit(service) {
-            fetch(`/api/get-ports/${service}`)
-                .then(r => r.json())
-                .then(data => {
-                    if (data.success) {
-                        document.getElementById('edit-service').value = service;
-                        document.getElementById('current-tunnel-port').value = data.tunnel_port || 'N/A';
-                        document.getElementById('edit-tunnel-port').value = data.tunnel_port || '';
-                        document.getElementById('current-web-port').value = data.web_port || 'N/A';
-                        document.getElementById('edit-web-port').value = data.web_port || '';
-                        document.getElementById('current-iperf-port').value = data.iperf_port || 'N/A';
-                        document.getElementById('edit-iperf-port').value = data.iperf_port || '';
-                        
-                        // Display forward ports
-                        const forwardDisplay = document.getElementById('forward-ports-display');
-                        if (data.forward_ports && data.forward_ports.length > 0) {
-                            forwardDisplay.innerHTML = '<h4>Forward Ports:</h4>' + 
-                                data.forward_ports.map(p => 
-                                    `<div>${p.external} → ${p.internal}</div>`
-                                ).join('');
-                        } else {
-                            forwardDisplay.innerHTML = '';
-                        }
-                        
-                        showModal('editModal');
-                    } else {
-                        showNotification(`❌ خطا: ${data.error}`, 'error');
-                    }
-                });
+        function showEdit(service, tunnel, web, iperf) {
+            document.getElementById('edit-service').value = service;
+            document.getElementById('edit-tunnel-port').value = tunnel;
+            document.getElementById('edit-web-port').value = web;
+            document.getElementById('edit-iperf-port').value = iperf;
+            showModal('editModal');
         }
         
         function saveEdit(e) {
@@ -1249,7 +1091,7 @@ DASHBOARD_TEMPLATE = '''
                 iperf_port: document.getElementById('edit-iperf-port').value
             };
             
-            fetch('/api/edit-ports', {
+            fetch('/api/edit-port', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify(data)
@@ -1268,48 +1110,26 @@ DASHBOARD_TEMPLATE = '''
         
         function showTestSpeed(port, iran, kharej) {
             const content = `
-                <div class="test-section">
-                    <h3>🔴 سرور ${iran}:</h3>
+                <h3 style="margin-bottom: 15px;">🔴 سرور ${iran}:</h3>
+                <div style="margin-bottom: 20px;">
+                    <p><strong>مرحله 1: راه‌اندازی سرور iperf3</strong></p>
+                    <pre style="cursor: pointer;" onclick="copyText(this)">iperf3 -s -B 127.0.0.1 -p ${port}</pre>
                     
-                    <div class="test-step">
-                        <p><strong>مرحله 1: راه‌اندازی سرور iperf3</strong></p>
-                        <div class="code-block">
-                            <pre onclick="copyText(this)">iperf3 -s -B 127.0.0.1 -p ${port}</pre>
-                            <div style="margin-top:5px;"><button class="btn btn-info btn-small" onclick="copyText(this.previousElementSibling.querySelector('pre'))">کپی</button></div>
-                        </div>
-                    </div>
+                    <p style="margin-top: 15px;"><strong>مرحله 2: تست سرعت دانلود (از Kharej)</strong></p>
+                    <pre style="cursor: pointer;" onclick="copyText(this)">iperf3 -c 127.0.0.1 -p ${port} -t 30</pre>
                     
-                    <div class="test-step">
-                        <p><strong>مرحله 2: تست سرعت دانلود (از ${kharej})</strong></p>
-                        <div class="code-block">
-                            <pre onclick="copyText(this)">iperf3 -c 127.0.0.1 -p ${port} -t 30</pre>
-                            <div style="margin-top:5px;"><button class="btn btn-info btn-small" onclick="copyText(this.previousElementSibling.querySelector('pre'))">کپی</button></div>
-                        </div>
-                    </div>
-                    
-                    <div class="test-step">
-                        <p><strong>مرحله 3: تست سرعت آپلود (به ${kharej})</strong></p>
-                        <div class="code-block">
-                            <pre onclick="copyText(this)">iperf3 -c 127.0.0.1 -p ${port} -t 30 -R</pre>
-                            <div style="margin-top:5px;"><button class="btn btn-info btn-small" onclick="copyText(this.previousElementSibling.querySelector('pre'))">کپی</button></div>
-                        </div>
-                    </div>
+                    <p style="margin-top: 15px;"><strong>مرحله 3: تست سرعت آپلود (به Kharej)</strong></p>
+                    <pre style="cursor: pointer;" onclick="copyText(this)">iperf3 -c 127.0.0.1 -p ${port} -t 30 -R</pre>
                 </div>
                 
-                <div class="test-section">
-                    <h3>🟢 سرور ${kharej}:</h3>
-                    
-                    <div class="test-step">
-                        <p><strong>راه‌اندازی سرور iperf3</strong></p>
-                        <div class="code-block">
-                            <pre onclick="copyText(this)">iperf3 -s -B 127.0.0.1 -p 5201</pre>
-                            <div style="margin-top:5px;"><button class="btn btn-info btn-small" onclick="copyText(this.previousElementSibling.querySelector('pre'))">کپی</button></div>
-                        </div>
-                    </div>
+                <h3 style="margin-bottom: 15px;">🟢 سرور ${kharej}:</h3>
+                <div>
+                    <p><strong>راه‌اندازی سرور iperf3</strong></p>
+                    <pre style="cursor: pointer;" onclick="copyText(this)">iperf3 -s -B 127.0.0.1 -p 5201</pre>
                 </div>
                 
-                <p style="margin-top: 20px; padding: 10px; background: var(--info); color: white; border-radius: 6px;">
-                    💡 نکته: روی هر دستور کلیک کنید یا از دکمه کپی استفاده کنید
+                <p style="margin-top: 20px; padding: 10px; background: var(--warning); color: white; border-radius: 6px;">
+                    💡 نکته: روی هر دستور کلیک کنید تا کپی شود
                 </p>
             `;
             
@@ -1317,29 +1137,28 @@ DASHBOARD_TEMPLATE = '''
             showModal('testModal');
         }
         
-        function removeService(service) {
-            if (!confirm(`آیا مطمئن هستید که می‌خواهید سرویس ${service} را حذف کنید؟`)) return;
-            
-            fetch(`/api/remove-service/${service}`, {method: 'POST'})
+        function showDashboardControl() {
+            fetch('/api/dashboard/control/status')
                 .then(r => r.json())
                 .then(data => {
-                    if (data.success) {
-                        showNotification('✅ سرویس حذف شد', 'success');
-                        setTimeout(loadConfigs, 1000);
-                    } else {
-                        showNotification(`❌ خطا: ${data.error}`, 'error');
-                    }
+                    const statusHtml = `
+                        <div style="padding: 15px; background: var(--bg-primary); border-radius: 6px;">
+                            <p><strong>وضعیت:</strong> ${data.active ? '✅ فعال' : '❌ غیرفعال'}</p>
+                            <p><strong>Enabled:</strong> ${data.enabled ? 'Yes' : 'No'}</p>
+                        </div>
+                    `;
+                    document.getElementById('dashboardStatus').innerHTML = statusHtml;
+                    showModal('dashboardModal');
                 });
         }
         
-        function removeFile(service) {
-            if (!confirm(`آیا مطمئن هستید که می‌خواهید فایل config برای ${service} را حذف کنید؟`)) return;
-            
-            fetch(`/api/remove-file/${service}`, {method: 'POST'})
+        function dashboardControl(action) {
+            fetch(`/api/dashboard/control/${action}`)
                 .then(r => r.json())
                 .then(data => {
                     if (data.success) {
-                        showNotification('✅ فایل حذف شد', 'success');
+                        showNotification(`✅ ${data.message}`, 'success');
+                        showDashboardControl();
                     } else {
                         showNotification(`❌ خطا: ${data.error}`, 'error');
                     }
@@ -1348,26 +1167,8 @@ DASHBOARD_TEMPLATE = '''
         
         function copyText(element) {
             const text = element.textContent;
-            copyToClipboard(text);
-            showNotification('✅ کپی شد', 'success');
-        }
-        
-        function copyModalCommand() {
-            if (currentModalCommand) {
-                copyToClipboard(currentModalCommand);
-                showNotification('✅ دستور کپی شد', 'success');
-            }
-        }
-        
-        function copyToClipboard(text) {
-            navigator.clipboard.writeText(text).catch(() => {
-                // Fallback
-                const textarea = document.createElement('textarea');
-                textarea.value = text;
-                document.body.appendChild(textarea);
-                textarea.select();
-                document.execCommand('copy');
-                document.body.removeChild(textarea);
+            navigator.clipboard.writeText(text).then(() => {
+                showNotification('✅ کپی شد', 'success');
             });
         }
         
@@ -1423,7 +1224,7 @@ DASHBOARD_TEMPLATE = '''
 
 if __name__ == '__main__':
     print("=" * 60)
-    print("@lvlRF Tunnel Management Dashboard v2.3")
+    print("@lvlRF Tunnel Management Dashboard")
     print("=" * 60)
     print(f"Port: {DASHBOARD_PORT}")
     print(f"Auto-refresh: {AUTO_REFRESH_SECONDS}s")

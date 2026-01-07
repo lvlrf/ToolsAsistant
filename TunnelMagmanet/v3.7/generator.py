@@ -168,7 +168,6 @@ class BackhaulBulkGenerator:
         
         iran_name = iran["name"]
         iran_ip = iran["ip"]
-        kharej_name = kharej["name"]
         tunnel_port = ports["tunnel"]
         web_port = ports["web"]
         
@@ -212,15 +211,14 @@ mux_streambuffer = 2000000
 """
         
         # Sniffer and web port
-        # Format: @lvlRF-Tunnel-{IranName}-{KharejName}-{Port}-{Transport}-{Profile}.json
-        log_filename = f"@lvlRF-Tunnel-{iran_name}-{kharej_name}-{tunnel_port}-{transport}"
+        log_dir = f"iran{tunnel_port}-{transport}"
         if transport_info["mux"]:
-            log_filename += f"-v{mux_version}"
-        log_filename += f"-{profile}.json"
+            log_dir += f"-v{mux_version}"
+        log_dir += f"-{profile}"
         
         config += f"""sniffer = true
 web_port = {web_port}
-sniffer_log = "{self.binary_path}/{log_filename}"
+sniffer_log = "{self.binary_path}/{log_dir}/log.json"
 log_level = "info"
 """
         
@@ -230,7 +228,7 @@ log_level = "info"
         
         # TUN settings
         if transport_info["tun"]:
-            tun_name = f"tun-{iran_name}-{kharej_name}-{tunnel_port}-{transport}"
+            tun_name = f"iran{tunnel_port}-{transport}"
             if transport_info["mux"]:
                 tun_name += f"-v{mux_version}"
             tun_name += f"-{profile}"
@@ -267,9 +265,7 @@ mss = 0
                                subnet: Optional[str], token: str) -> str:
         """Generate Kharej client configuration"""
         
-        iran_name = iran["name"]
         iran_ip = iran["ip"]
-        kharej_name = kharej["name"]
         tunnel_port = ports["tunnel"]
         web_port = ports["web"]
         
@@ -315,22 +311,21 @@ mux_recievebuffer = 4194304
 mux_streambuffer = 2000000
 """
         
-        # Sniffer and web port (use same filename as server)
-        # Format: @lvlRF-Tunnel-{IranName}-{KharejName}-{Port}-{Transport}-{Profile}.json
-        log_filename = f"@lvlRF-Tunnel-{iran_name}-{kharej_name}-{tunnel_port}-{transport}"
+        # Sniffer and web port
+        log_dir = f"kharej{tunnel_port}-{transport}"
         if transport_info["mux"]:
-            log_filename += f"-v{mux_version}"
-        log_filename += f"-{profile}.json"
+            log_dir += f"-v{mux_version}"
+        log_dir += f"-{profile}"
         
         config += f"""sniffer = true
 web_port = {web_port}
-sniffer_log = "{self.binary_path}/{log_filename}"
+sniffer_log = "{self.binary_path}/{log_dir}/log.json"
 log_level = "info"
 """
         
         # TUN settings (must match server)
         if transport_info["tun"]:
-            tun_name = f"tun-{iran_name}-{kharej_name}-{tunnel_port}-{transport}"
+            tun_name = f"kharej{tunnel_port}-{transport}"
             if transport_info["mux"]:
                 tun_name += f"-v{mux_version}"
             tun_name += f"-{profile}"
@@ -454,11 +449,8 @@ mss = 0
                             config_suffix += f"-v{mux_version}"
                         config_suffix += f"-{profile}"
                         
-                        # Config file names (same for both, in different dirs)
-                        # Format: @lvlRF-Tunnel-{IranName}-{KharejName}-{Port}-{Transport}-{Profile}.toml
-                        config_name = f"@lvlRF-Tunnel-{iran_name}-{kharej_name}-{tunnel_port}{config_suffix}.toml"
-                        iran_config_name = config_name
-                        kharej_config_name = config_name
+                        iran_config_name = f"iran{tunnel_port}{config_suffix}.toml"
+                        kharej_config_name = f"kharej{tunnel_port}{config_suffix}.toml"
                         
                         # Save configs
                         iran_config_path = iran_dir / iran_config_name
@@ -470,12 +462,10 @@ mss = 0
                         with open(kharej_config_path, 'w', encoding='utf-8') as f:
                             f.write(client_config)
                         
-                        # Service names (same for both Iran and Kharej)
-                        # Format: lvlRF-Tunnel-{IranName}-{KharejName}-{Port}-{Transport}-{Profile}
+                        # Service names
                         service_suffix = config_suffix
-                        service_name = f"lvlRF-Tunnel-{iran_name}-{kharej_name}-{tunnel_port}{service_suffix}"
-                        iran_service_name = service_name
-                        kharej_service_name = service_name
+                        iran_service_name = f"@lvlRF-Tunnel-iran{tunnel_port}{service_suffix}"
+                        kharej_service_name = f"@lvlRF-Tunnel-kharej{tunnel_port}{service_suffix}"
                         
                         # Generate service files
                         iran_service = self.generate_service_file(
@@ -558,7 +548,7 @@ After=network.target
 [Service]
 Type=simple
 WorkingDirectory={self.binary_path}
-ExecStart={self.binary_path}/{self.binary_filename} -c {self.binary_path}/{config_filename}
+ExecStart={self.binary_path}/./{self.binary_filename} -c {self.binary_path}/{config_filename}
 Restart=always
 RestartSec=3
 LimitNOFILE=1048576
@@ -730,56 +720,39 @@ echo "[OK] All services removed!"
             os.chmod(script_path, 0o755)
     
     def generate_dashboard(self):
-        """Copy dashboard files to output directory"""
+        """Generate HTML dashboard"""
         print()
-        print("Preparing Dashboard files...")
+        print("Generating Dashboard...")
         
         if not Path("state.json").exists():
             print("[ERROR] state.json not found! Run config generator first.")
             return False
         
-        # Dashboard files to copy
-        dashboard_files = [
-            "dashboard.py",
-            "install-dashboard.sh"
-        ]
+        # Read template
+        dashboard_template = Path(__file__).parent / "dashboard-template.html"
+        if not dashboard_template.exists():
+            print("[ERROR] dashboard-template.html not found!")
+            return False
         
-        # Copy to each Iran server directory
-        for iran_server in self.config["iran_servers"]:
-            iran_dir = self.output_dir / "Iran" / iran_server["name"]
-            for file in dashboard_files:
-                src = Path(__file__).parent / file
-                if src.exists():
-                    dst = iran_dir / file
-                    with open(src, 'r', encoding='utf-8') as f:
-                        content = f.read()
-                    with open(dst, 'w', encoding='utf-8') as f:
-                        f.write(content)
-                    if file.endswith('.sh'):
-                        os.chmod(dst, 0o755)
+        with open(dashboard_template, 'r', encoding='utf-8') as f:
+            html_content = f.read()
         
-        # Copy to each Kharej server directory
-        for kharej_server in self.config["kharej_servers"]:
-            kharej_dir = self.output_dir / "Kharej" / kharej_server["name"]
-            for file in dashboard_files:
-                src = Path(__file__).parent / file
-                if src.exists():
-                    dst = kharej_dir / file
-                    with open(src, 'r', encoding='utf-8') as f:
-                        content = f.read()
-                    with open(dst, 'w', encoding='utf-8') as f:
-                        f.write(content)
-                    if file.endswith('.sh'):
-                        os.chmod(dst, 0o755)
+        # Embed state and config data
+        state_json = json.dumps(self.state, ensure_ascii=False, indent=2)
+        config_json = json.dumps(self.config, ensure_ascii=False, indent=2)
         
-        print("[OK] Dashboard files copied to all server directories")
-        print()
-        print("To install Dashboard:")
-        print("  1. Upload dashboard.py and install-dashboard.sh to server")
-        print("  2. Edit dashboard.py and change password (line 12)")
-        print("  3. Run: bash install-dashboard.sh")
-        print("  4. Open firewall: ufw allow 8000/tcp")
-        print("  5. Access: http://YOUR_SERVER_IP:8000")
+        # Replace placeholder with embedded data
+        html_content = html_content.replace(
+            '// STATE_DATA_PLACEHOLDER',
+            f'const stateData = {state_json};\nconst configData = {config_json};'
+        )
+        
+        # Write dashboard
+        output_file = Path("dashboard.html")
+        with open(output_file, 'w', encoding='utf-8') as f:
+            f.write(html_content)
+        
+        print(f"[OK] Dashboard generated: {output_file.absolute()}")
         return True
 
 def get_valid_input(prompt: str, valid_options: list) -> str:

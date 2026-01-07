@@ -1,8 +1,8 @@
 {
   "binary_config": {
     "premium": {
-      "path": "/root/backhaul-core",
-      "filename": "backhaul_premium"
+      "path": "/var/lib/@lvlRF-Tunnel",
+      "filename": "@lvlRF-Tunnel"
     }
   },
 
@@ -11,7 +11,7 @@
     "web_port_start": 800,
     "iperf_iran_port_start": 5001,
     "iperf_kharej_port": 5201,
-    "excluded_ports": [22, 80, 443, 8080],
+    "excluded_ports": [22, 53, 68, 631, 443, 8888, 8880, 5000, 3306, 33060, 200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 2060, 1, 2, 87, 1616, 4010, 7443, 58444],
     "subnet_start": "10.10.10.0/24",
     "profiles": ["speed", "stable", "balanced"],
     "token_per_connection": true
@@ -20,30 +20,30 @@
   "iran_servers": [
     {
       "name": "Tehran-Main",
-      "ip": "87.107.185.76"
+      "ip": "1.2.3.4"
     },
     {
-      "name": "Shiraz-DC",
-      "ip": "91.107.185.77"
+      "name": "Tehran-Backup",
+      "ip": "1.2.3.5"
     },
     {
-      "name": "Mashhad-Hub",
-      "ip": "92.107.185.78"
+      "name": "Shiraz-Primary",
+      "ip": "1.2.3.6"
     }
   ],
 
   "kharej_servers": [
     {
       "name": "Germany-Hetzner",
-      "ip": "141.11.250.146"
+      "ip": "5.6.7.8"
     },
     {
-      "name": "France-OVH",
-      "ip": "151.80.231.147"
+      "name": "Netherlands-OVH",
+      "ip": "5.6.7.9"
     },
     {
-      "name": "Netherlands-Vultr",
-      "ip": "45.76.142.148"
+      "name": "Finland-Contabo",
+      "ip": "5.6.7.10"
     }
   ],
 
@@ -51,47 +51,17 @@
     {
       "iran": "Tehran-Main",
       "kharej": "Germany-Hetzner",
-      "transports": ["tcp", "tcpmux", "utcpmux", "ws", "wsmux", "uwsmux", "tcptun", "faketcptun"]
-    },
-    {
-      "iran": "Tehran-Main",
-      "kharej": "France-OVH",
-      "transports": ["tcp", "tcpmux", "ws", "wsmux", "tcptun"]
-    },
-    {
-      "iran": "Tehran-Main",
-      "kharej": "Netherlands-Vultr",
-      "transports": "all"
-    },
-    {
-      "iran": "Shiraz-DC",
-      "kharej": "Germany-Hetzner",
-      "transports": ["tcp", "utcpmux", "uwsmux", "faketcptun"]
-    },
-    {
-      "iran": "Shiraz-DC",
-      "kharej": "France-OVH",
-      "transports": ["tcpmux", "wsmux", "tcptun"]
-    },
-    {
-      "iran": "Shiraz-DC",
-      "kharej": "Netherlands-Vultr",
-      "transports": ["tcp", "ws", "udp", "tcptun", "faketcptun"]
-    },
-    {
-      "iran": "Mashhad-Hub",
-      "kharej": "Germany-Hetzner",
       "transports": ["tcp", "tcpmux", "ws", "wsmux"]
     },
     {
-      "iran": "Mashhad-Hub",
-      "kharej": "France-OVH",
-      "transports": "all"
+      "iran": "Tehran-Backup",
+      "kharej": "Netherlands-OVH",
+      "transports": ["tcp", "ws"]
     },
     {
-      "iran": "Mashhad-Hub",
-      "kharej": "Netherlands-Vultr",
-      "transports": ["utcpmux", "uwsmux", "xtcpmux", "xwsmux", "tcptun", "faketcptun"]
+      "iran": "Shiraz-Primary",
+      "kharej": "Finland-Contabo",
+      "transports": ["tcp", "udp"]
     }
   ]
 }

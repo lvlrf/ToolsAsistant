@@ -1,525 +1,125 @@
-# Backhaul Premium Bulk Config Generator v2.0
+# Backhaul Premium Generator v2.3 - نسخه نهایی
 
-Complete automated tool for generating tunnel configurations with **Live Web Dashboard**
-
----
-
-## ✨ Key Features
-
-### 🎯 Full Transport Support
-- ✅ **13 transport types:** tcp, tcpmux, utcpmux, xtcpmux, ws, wsmux, uwsmux, xwsmux, udp, tcptun, faketcptun, wstun, udptun
-- ✅ **Mux Versions:** v1 and v2 for all mux transports
-- ✅ **TUN Support:** Automatic subnet management
-
-### 🚀 Three Optimization Profiles
-- **Speed:** Maximum bandwidth and speed
-- **Stable:** Stability in unstable networks
-- **Balanced:** Balance between speed and stability
-
-### 📊 Live Web Dashboard ⭐ NEW!
-- **Real-time status** of all services
-- **Direct control:** Start/Stop/Restart from web
-- **Edit ports** with auto-restart
-- **View logs** in real-time
-- **Test speed** with step-by-step guide
-- **Dark mode** support
-- **Auto-refresh** every 3 seconds
-- **Remote access** via IP or domain
-- **Secure login** with password protection
-
-### 🛠 Complete Tools
-- Service management scripts (install, stop, restart, remove)
-- Server optimization scripts (Iran & Kharej)
-- Interactive menu system
+تولید خودکار config های تانل با Dashboard مدیریتی کامل
 
 ---
 
-## 🚀 Quick Start
+## 🚀 شروع سریع
 
-### 1. Generate Configs
-
+### 1. تنظیم config.json
 ```bash
-python3 generator.py
-# Choose [4] Everything
+nano config.json
 ```
 
-### 2. Setup Dashboard (Optional but Recommended!)
-
-```bash
-# Upload to server
-scp dashboard.py install-dashboard.sh root@SERVER:/root/backhaul-core/
-
-# Change password
-nano dashboard.py  # Line 12: DASHBOARD_PASSWORD
-
-# Install
-bash install-dashboard.sh
-
-# Access
-http://YOUR_SERVER_IP:8000
-```
-
-### 3. Upload Configs
-
-```bash
-# Upload binary and configs
-scp backhaul_premium.tar.gz root@SERVER:/root/backhaul-core/
-scp output/Iran/Tehran-Main/* root@SERVER:/root/backhaul-core/
-```
-
-### 4. Install Services
-
-**Option A: Via Dashboard (Recommended)**
-```
-http://YOUR_SERVER_IP:8000
-→ Extract Binary button
-→ Install button for each config
-```
-
-**Option B: Via Scripts**
-```bash
-cd /root/backhaul-core
-bash install-services.sh
-```
-
----
-
-## 📊 Dashboard Features
-
-### Live Monitoring
-- ✅ Real-time service status (Active/Inactive)
-- ✅ Auto-refresh every 3 seconds
-- ✅ Filter by status, server, transport
-- ✅ Dark/Light theme
-
-### Direct Control
-- ✅ Start/Stop/Restart services
-- ✅ View real-time logs
-- ✅ Edit ports (tunnel, web, iperf)
-- ✅ Test speed with iperf3
-- ✅ Bulk operations (start/stop all)
-
-### Security
-- ✅ Password-protected access
-- ✅ Enable/Disable dashboard service
-- ✅ Session management (24h)
-- ✅ Remote access ready
-
-**See DASHBOARD-README.md for complete guide**
-
----
-
-## 🚀 Quick Start
-
-### 1. Run Generator
-
-```bash
-python3 generator.py
-```
-
-**Interactive Menu:**
-```
-============================================================
-Backhaul Premium Bulk Config Generator
-============================================================
-
-What would you like to generate?
-
-[1] Configs only
-[2] Configs + Dashboard
-[3] Configs + Optimization scripts
-[4] Everything (Configs + Dashboard + Optimization)
-[5] View current state
-[0] Exit
-
-Enter choice (0-5): 
-```
-
-### 2. Choose Option
-
-- **Option 1:** Generate only configuration files
-- **Option 2:** Generate configs + HTML dashboard
-- **Option 3:** Generate configs + optimization scripts
-- **Option 4:** Generate everything (recommended)
-- **Option 5:** View current state (ports, subnets, tokens)
-
-### 3. Upload to Servers
-
-```bash
-# Upload binary
-scp backhaul_premium.tar.gz root@SERVER_IP:/root/backhaul-core/
-
-# Upload configs (example for Iran)
-scp output/Iran/Tehran-Main/*.toml root@SERVER_IP:/root/backhaul-core/
-scp output/Iran/Tehran-Main/*.sh root@SERVER_IP:/root/backhaul-core/
-```
-
-### 4. Install Services
-
-```bash
-ssh root@SERVER_IP
-cd /root/backhaul-core
-bash install-services.sh
-```
-
-### 5. Open Dashboard
-
-Open `dashboard.html` in your browser to manage all configs!
-
----
-
-## ⚙️ Configuration
-
-### config.json Structure
-
+**ویرایش IP ها:**
 ```json
 {
-  "binary_config": {
-    "premium": {
-      "path": "/root/backhaul-core",
-      "filename": "backhaul_premium"
-    }
-  },
-
-  "settings": {
-    "tunnel_port_start": 100,
-    "web_port_start": 800,
-    "iperf_iran_port_start": 5001,
-    "iperf_kharej_port": 5201,
-    "excluded_ports": [22, 80, 443, 8080],
-    "profiles": ["speed", "stable", "balanced"],
-    "token_per_connection": true
-  },
-
   "iran_servers": [
-    {"name": "Tehran-Main", "ip": "1.2.3.4"}
+    {"name": "Tehran-Main", "ip": "YOUR_IRAN_IP_1"},
+    {"name": "Tehran-Backup", "ip": "YOUR_IRAN_IP_2"},
+    {"name": "Shiraz-Primary", "ip": "YOUR_IRAN_IP_3"}
   ],
-
   "kharej_servers": [
-    {"name": "Germany-Hetzner", "ip": "5.6.7.8"}
+    {"name": "Germany-Hetzner", "ip": "YOUR_KHAREJ_IP_1"},
+    {"name": "Netherlands-OVH", "ip": "YOUR_KHAREJ_IP_2"},
+    {"name": "Finland-Contabo", "ip": "YOUR_KHAREJ_IP_3"}
   ],
-
   "connections": [
     {
       "iran": "Tehran-Main",
       "kharej": "Germany-Hetzner",
-      "transports": "all"
+      "transports": ["tcp", "tcpmux", "ws", "wsmux"]
     }
   ]
 }
 ```
 
-### Transport Options
-
-**All transports:**
-```json
-"transports": "all"
-```
-or
-```json
-"transports": ["all"]
+### 2. تولید Config ها
+```bash
+python3 generator.py
+# انتخاب [4] Everything
 ```
 
-**Specific transports:**
-```json
-"transports": ["tcp", "tcpmux", "ws", "tcptun"]
+### 3. آپلود و نصب
+```bash
+# Iran
+scp output/Iran/Tehran-Main/* root@IRAN_IP:/var/lib/@lvlRF-Tunnel/
+ssh root@IRAN_IP "cd /var/lib/@lvlRF-Tunnel && tar -xzf @lvlRF-Tunnel.tar.gz && chmod +x @lvlRF-Tunnel && bash install-services.sh"
+
+# Kharej
+scp output/Kharej/Germany-Hetzner/* root@KHAREJ_IP:/var/lib/@lvlRF-Tunnel/
+ssh root@KHAREJ_IP "cd /var/lib/@lvlRF-Tunnel && tar -xzf @lvlRF-Tunnel.tar.gz && chmod +x @lvlRF-Tunnel && bash install-services.sh"
 ```
 
-### Profile Options
-
-**Single profile:**
-```json
-"profiles": ["balanced"]
+### 4. نصب Dashboard (اختیاری)
+```bash
+scp dashboard.py install-dashboard.sh root@SERVER:/var/lib/@lvlRF-Tunnel/
+ssh root@SERVER
+cd /var/lib/@lvlRF-Tunnel
+nano dashboard.py  # تغییر password در خط 12
+bash install-dashboard.sh
+ufw allow 8000/tcp
 ```
 
-**All profiles:**
-```json
-"profiles": ["speed", "stable", "balanced"]
+**دسترسی:** `http://YOUR_SERVER_IP:8000`
+
+---
+
+## 📋 نام‌گذاری
+
+```
+@lvlRF-Tunnel-{IranName}-{KharejName}-{Port}-{Transport}-{Profile}
+
+مثال: @lvlRF-Tunnel-Tehran-Main-Germany-Hetzner-100-tcp-speed
 ```
 
 ---
 
-## 📊 Dashboard Features
+## 🎯 Dashboard Features
 
-### Quick Actions
-- **📦 Extract & Chmod Binary:** Extract and set permissions
-- **🔄 Restart All Services:** Restart all services
-- **⏸️ Stop All Services:** Stop all services
-- **🗑️ Remove All Services:** Remove all services
-
-### Per-Config Actions
-- **🌐 Web Panel:** Open web interface (auto-detects IP)
-- **📊 Status:** Check service status
-- **▶️ Start:** Start service
-- **⏸️ Stop:** Stop service
-- **🔄 Restart:** Restart service
-- **📜 Logs:** View real-time logs
-
-### Filters
-- Search by name, port, transport
-- Filter by server
-- Filter by transport type
-- Filter by profile
-
-### Transport Guide
-- Quick reference for all transports
-- Best use cases
-- Performance characteristics
-- Available in header and footer
+- Live status monitoring
+- Start/Stop/Restart با Modal
+- مشاهده و Refresh لاگ‌ها
+- ویرایش پورت‌ها
+- تست سرعت (راهنمای گام‌به‌گام)
+- حذف سرویس/فایل
+- Dark mode
+- فیلتر و جستجو
 
 ---
 
-## 🎯 Optimization Profiles
+## 📚 Transports (13 نوع)
 
-### Speed Profile
-```toml
-channel_size = 4096
-heartbeat = 20
-mux_con = 128
-connection_pool = 16
-aggressive_pool = true
-```
-**Best for:** High bandwidth, large downloads, streaming
+tcp, tcpmux, utcpmux, xtcpmux, ws, wsmux, uwsmux, xwsmux, udp, tcptun, faketcptun, wstun, udptun
 
-### Stable Profile
-```toml
-channel_size = 2048
-heartbeat = 40
-mux_con = 64
-connection_pool = 8
-aggressive_pool = false
-```
-**Best for:** Unstable networks, long-term connections
-
-### Balanced Profile
-```toml
-channel_size = 2048
-heartbeat = 20
-mux_con = 64
-connection_pool = 8
-aggressive_pool = false
-```
-**Best for:** General use, recommended default
+**Profiles:** speed, stable, balanced
 
 ---
 
-## 🔧 Service Management
-
-### Via Dashboard
-Click buttons in dashboard to copy commands, then paste in terminal
-
-### Via Scripts
+## 🔧 مدیریت
 
 ```bash
-# Start all services
-bash install-services.sh
+# وضعیت
+systemctl status @lvlRF-Tunnel-Tehran-Main-Germany-Hetzner-100-tcp-speed
 
-# Stop all services
-bash stop-services.sh
-
-# Restart all services
-bash restart-services.sh
-
-# Remove all services
-bash remove-services.sh
-```
-
-### Individual Service
-
-```bash
-# Status
-systemctl status backhaul-iran100-tcp-speed.service
-
-# Start
-systemctl start backhaul-iran100-tcp-speed.service
-
-# Stop
-systemctl stop backhaul-iran100-tcp-speed.service
-
-# Restart
-systemctl restart backhaul-iran100-tcp-speed.service
+# Start/Stop/Restart
+systemctl start|stop|restart SERVICE_NAME
 
 # Logs
-journalctl -u backhaul-iran100-tcp-speed.service -f
+journalctl -u SERVICE_NAME.service -f
 ```
 
 ---
 
-## 🌐 Web Interface
-
-Each tunnel has a web interface:
-
-```
-http://SERVER_IP:800   # First tunnel
-http://SERVER_IP:801   # Second tunnel
-http://SERVER_IP:802   # Third tunnel
-...
-```
-
-Dashboard opens these automatically with server IPs from config.json!
-
----
-
-## 🧪 Speed Testing with iperf3
-
-### On Kharej:
-```bash
-iperf3 -s -B 127.0.0.1 -p 5201
-```
-
-### On Iran:
-```bash
-# First tunnel
-iperf3 -c 127.0.0.1 -p 5001 -t 30
-
-# Second tunnel
-iperf3 -c 127.0.0.1 -p 5002 -t 30
-```
-
----
-
-## 📁 Output Structure
+## 📁 ساختار خروجی
 
 ```
 output/
-├── Iran/
-│   └── Tehran-Main/
-│       ├── iran100-tcp-speed.toml
-│       ├── iran101-tcp-stable.toml
-│       ├── iran102-tcp-balanced.toml
-│       ├── ... (all configs)
-│       ├── install-services.sh
-│       ├── stop-services.sh
-│       ├── restart-services.sh
-│       ├── remove-services.sh
-│       └── optimize-iran.sh (if option 3 or 4)
-│
-└── Kharej/
-    └── Germany-Hetzner/
-        ├── kharej100-tcp-speed.toml
-        ├── ... (all configs)
-        ├── install-services.sh
-        ├── stop-services.sh
-        ├── restart-services.sh
-        ├── remove-services.sh
-        └── optimize-kharej.sh (if option 3 or 4)
+├── Iran/Tehran-Main/*.toml
+├── Kharej/Germany-Hetzner/*.toml
 ```
 
 ---
 
-## 🛡️ Server Optimization
-
-**Optional but recommended:**
-
-```bash
-# On Iran server
-bash optimize-iran.sh
-
-# On Kharej server
-bash optimize-kharej.sh
-```
-
-**Features:**
-- BBR congestion control
-- TCP/UDP buffer optimization
-- System limits adjustment
-- **Automatic backup** before changes
-- Reboot required after optimization
-
----
-
-## ⚠️ Important Notes
-
-### 1. Binary Path
-```bash
-# Correct
-/root/backhaul-core/backhaul_premium
-/root/backhaul-core/backhaul_premium.tar.gz
-
-# Incorrect
-/root/backhaul_premium
-/tmp/backhaul_premium
-```
-
-### 2. TUN Subnets
-- Must be network address (ending in .0)
-- Example: `10.10.10.0/24` ✅
-- Not: `10.10.10.1/24` ❌
-
-### 3. Tokens
-- One token per connection
-- Iran and Kharej use same token
-- Stored in state.json
-
-### 4. Service Names
-Pattern: `backhaul-{iran/kharej}{port}-{transport}-{profile}`
-
-Examples:
-- `backhaul-iran100-tcp-speed`
-- `backhaul-iran101-tcpmux-v2-stable`
-- `backhaul-kharej100-tcp-speed`
-
----
-
-## 🐛 Troubleshooting
-
-### Service Failed to Start
-```bash
-# Check logs
-journalctl -u SERVICE_NAME -n 50
-
-# Check binary
-ls -la /root/backhaul-core/backhaul_premium
-
-# Extract if needed
-cd /root/backhaul-core
-tar -xzf backhaul_premium.tar.gz
-chmod +x backhaul_premium
-```
-
-### Port Already in Use
-```bash
-# Find process
-ss -tlnp | grep PORT
-
-# Kill process
-kill -9 PID
-
-# Or add port to excluded_ports in config.json
-```
-
-### Dashboard Not Working
-- Make sure you ran generator with option 2 or 4
-- Open dashboard.html in modern browser (Chrome, Firefox, Edge)
-- Check browser console for errors
-
----
-
-## 📚 Additional Resources
-
-- [TRANSPORTS-GUIDE.md](TRANSPORTS-GUIDE.md) - Detailed transport explanations
-- [PROFILES-GUIDE.md](PROFILES-GUIDE.md) - Profile comparison
-- [TROUBLESHOOTING.md](TROUBLESHOOTING.md) - Common issues
-- [QUICKSTART.md](QUICKSTART.md) - 5-minute setup guide
-
----
-
-## 🆕 What's New in v2.0
-
-- ✅ Interactive menu system
-- ✅ Integrated dashboard generation
-- ✅ No separate scripts needed
-- ✅ Input validation (yes/no prompts)
-- ✅ Cleaner file structure
-- ✅ Dashboard with auto IP detection
-- ✅ English-only interface
-- ✅ Vazir font from CDN
-- ✅ Transport guide in dashboard
-- ✅ Extract & Chmod quick action
-- ✅ Improved service management
-
----
-
-**Version:** 2.0.0  
-**Date:** 2026-01-06  
-**Compatible with:** Backhaul Premium v1.3.0+
+**نسخه:** 2.3 Final  
+**تاریخ:** 2026-01-06
