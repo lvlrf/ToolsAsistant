@@ -1,0 +1,187 @@
+# لیست بسته‌های مورد نیاز برای نصب آفلاین
+# این فایل شامل تمام dependencies و ابزارهای لازم است
+
+## ===============================================
+## Build Dependencies (برای Build کردن slipstream)
+## ===============================================
+
+build-essential
+git
+meson
+ninja-build
+pkg-config
+libssl-dev
+python3
+python3-pip
+
+## ===============================================
+## Network Tools
+## ===============================================
+
+curl
+wget
+net-tools
+dnsutils
+iptables
+iptables-persistent
+
+## ===============================================
+## WireGuard
+## ===============================================
+
+wireguard
+wireguard-tools
+qrencode
+
+## ===============================================
+## SOCKS5 (Dante)
+## ===============================================
+
+dante-server
+
+## ===============================================
+## Monitoring Tools
+## ===============================================
+
+iftop
+nethogs
+vnstat
+htop
+iperf3
+ifstat
+
+## ===============================================
+## Optional but Recommended
+## ===============================================
+
+tmux
+screen
+vim
+nano
+
+## ===============================================
+## راهنمای دانلود آفلاین
+## ===============================================
+#
+# برای دانلود تمام بسته‌ها به همراه dependencies:
+#
+# 1. روی یک سیستم با اینترنت (Ubuntu/Debian):
+#
+#    # ایجاد directory برای بسته‌ها
+#    mkdir -p ~/offline-packages
+#    cd ~/offline-packages
+#
+#    # دانلود همه بسته‌ها
+#    apt-get update
+#    apt-get download $(cat offline-packages.txt | grep -v '^#' | grep -v '^$' | xargs)
+#
+#    # دانلود dependencies
+#    apt-get download $(apt-cache depends --recurse --no-recommends --no-suggests \
+#      build-essential git meson ninja-build pkg-config libssl-dev python3 python3-pip \
+#      curl wget net-tools dnsutils iptables iptables-persistent \
+#      wireguard wireguard-tools qrencode dante-server \
+#      iftop nethogs vnstat htop iperf3 ifstat | \
+#      grep "^\w" | sort -u)
+#
+# 2. فایل‌های slipstream source:
+#
+#    git clone --recursive https://github.com/EndPositive/slipstream.git
+#    tar czf slipstream-source.tar.gz slipstream/
+#
+# 3. کل پوشه رو به سرور ایران منتقل کن:
+#
+#    tar czf offline-install.tar.gz offline-packages/ slipstream-source.tar.gz
+#    # انتقال از طریق USB، FTP، یا SCP
+#
+# 4. روی سرور ایران نصب کن:
+#
+#    tar xzf offline-install.tar.gz
+#    cd offline-packages
+#    dpkg -i *.deb
+#    apt-get install -f  # حل کردن dependency های باقی‌مانده
+#
+## ===============================================
+## اسکریپت خودکار دانلود
+## ===============================================
+#
+# اسکریپت زیر همه بسته‌ها رو خودکار دانلود میکنه:
+#
+#!/bin/bash
+#
+# DOWNLOAD_DIR=~/offline-packages
+# mkdir -p $DOWNLOAD_DIR
+# cd $DOWNLOAD_DIR
+#
+# # لیست بسته‌ها
+# PACKAGES=(
+#   build-essential git meson ninja-build pkg-config libssl-dev python3 python3-pip
+#   curl wget net-tools dnsutils iptables iptables-persistent
+#   wireguard wireguard-tools qrencode dante-server
+#   iftop nethogs vnstat htop iperf3 ifstat
+# )
+#
+# # دانلود بسته‌ها
+# apt-get update
+# for pkg in "${PACKAGES[@]}"; do
+#   echo "Downloading $pkg..."
+#   apt-get download $pkg 2>/dev/null
+#   apt-cache depends --recurse --no-recommends --no-suggests $pkg | \
+#     grep "^\w" | xargs apt-get download 2>/dev/null
+# done
+#
+# # دانلود slipstream source
+# cd ..
+# git clone --recursive https://github.com/EndPositive/slipstream.git
+# tar czf slipstream-source.tar.gz slipstream/
+#
+# # بسته‌بندی نهایی
+# tar czf offline-install-complete.tar.gz offline-packages/ slipstream-source.tar.gz
+#
+# echo "Done! File: offline-install-complete.tar.gz"
+# echo "Size: $(du -h offline-install-complete.tar.gz)"
+#
+## ===============================================
+## حجم تقریبی
+## ===============================================
+#
+# بسته‌های .deb: ~200-300 MB
+# slipstream source: ~50 MB
+# جمع کل: ~250-350 MB
+#
+## ===============================================
+## نکات مهم
+## ===============================================
+#
+# 1. حتماً از یک OS مشابه (Ubuntu 22.04 یا 24.04) دانلود کن
+# 2. Architecture باید یکسان باشه (amd64)
+# 3. بسته‌های dante-server ممکنه در repository پیش‌فرض نباشه
+#    در اون صورت از universe repository استفاده کن:
+#    add-apt-repository universe
+#
+## ===============================================
+## Alternative: Docker Method (اگر Docker داری)
+## ===============================================
+#
+# اگر Docker نصب است، میتونی از container استفاده کنی:
+#
+# docker run -v /tmp/packages:/packages ubuntu:22.04 bash -c "
+#   apt-get update && \
+#   cd /packages && \
+#   apt-get download build-essential git meson ... (لیست کامل)
+# "
+#
+## ===============================================
+## Verification بعد از نصب
+## ===============================================
+#
+# بعد از نصب آفلاین، چک کن همه ابزارها نصب شدن:
+#
+# which git
+# which meson
+# which wg
+# which danted
+# which iftop
+#
+## ===============================================
+
+# End of file

@@ -1,0 +1,28 @@
+[Unit]
+Description=Sub-Relay Dashboard Service
+After=network.target
+Documentation=https://github.com/DrConnect/sub-relay
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/sub-relay/dashboard
+ExecStart=/opt/sub-relay/dashboard/venv/bin/python /opt/sub-relay/dashboard/app.py
+Restart=always
+RestartSec=5
+
+# Environment
+Environment="PYTHONUNBUFFERED=1"
+Environment="PATH=/opt/sub-relay/dashboard/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+# Security
+PrivateTmp=true
+NoNewPrivileges=true
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=sub-relay-dashboard
+
+[Install]
+WantedBy=multi-user.target

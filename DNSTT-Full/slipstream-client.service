@@ -1,0 +1,190 @@
+# slipstream Client Systemd Service
+# نصب در: /etc/systemd/system/slipstream-client.service
+# سرور: ایران
+#
+# دستورات مدیریت:
+#   systemctl start slipstream-client
+#   systemctl stop slipstream-client
+#   systemctl restart slipstream-client
+#   systemctl status slipstream-client
+#   systemctl enable slipstream-client   # برای auto-start
+#   journalctl -u slipstream-client -f   # برای دیدن logs
+
+[Unit]
+Description=Slipstream DNS Tunnel Client
+Documentation=https://endpositive.github.io/slipstream/
+After=network-online.target
+Wants=network-online.target
+
+# این service باید قبل از WireGuard و SOCKS5 start بشه
+Before=wg-quick@wg0.service
+Before=danted.service
+
+[Service]
+Type=simple
+
+# User و Group
+User=root
+Group=root
+
+# Working Directory
+WorkingDirectory=/etc/slipstream
+
+# دستور اجرای slipstream client
+ExecStart=/usr/local/bin/slipstream client \
+    --config /etc/slipstream/client.conf \
+    --resolvers /etc/slipstream/resolvers.txt \
+    --log-level info
+
+# Pre-start checks
+ExecStartPre=/usr/bin/test -f /etc/slipstream/client.conf
+ExecStartPre=/usr/bin/test -f /etc/slipstream/resolvers.txt
+ExecStartPre=/bin/sh -c 'echo "Starting slipstream client..." | systemd-cat'
+
+# Enable IP forwarding (برای routing)
+ExecStartPre=/sbin/sysctl -w net.ipv4.ip_forward=1
+ExecStartPre=/sbin/sysctl -w net.ipv6.conf.all.forwarding=1
+
+# Create TUN interface if not exists
+ExecStartPre=-/sbin/ip tuntap add dev tun0 mode tun user root
+
+# Post-start: Setup routing
+ExecStartPost=/bin/sleep 3
+ExecStartPost=/bin/sh -c 'ip addr show tun0 | grep -q "10.0.0.2" && echo "Tunnel interface ready" | systemd-cat'
+
+# Setup NAT (MASQUERADE) برای ترافیک خروجی
+ExecStartPost=/sbin/iptables -t nat -A POSTROUTING -s 10.0.0.0/24 -o tun0 -j MASQUERADE
+ExecStartPost=/sbin/iptables -t nat -A POSTROUTING -s 10.8.0.0/24 -o tun0 -j MASQUERADE
+
+# Allow forwarding
+ExecStartPost=/sbin/iptables -A FORWARD -i tun0 -j ACCEPT
+ExecStartPost=/sbin/iptables -A FORWARD -o tun0 -j ACCEPT
+ExecStartPost=/sbin/iptables -A FORWARD -i wg0 -j ACCEPT
+ExecStartPost=/sbin/iptables -A FORWARD -o wg0 -j ACCEPT
+
+# Stop commands: Clean up iptables rules
+ExecStopPost=/sbin/iptables -t nat -D POSTROUTING -s 10.0.0.0/24 -o tun0 -j MASQUERADE 2>/dev/null || true
+ExecStopPost=/sbin/iptables -t nat -D POSTROUTING -s 10.8.0.0/24 -o tun0 -j MASQUERADE 2>/dev/null || true
+ExecStopPost=/sbin/iptables -D FORWARD -i tun0 -j ACCEPT 2>/dev/null || true
+ExecStopPost=/sbin/iptables -D FORWARD -o tun0 -j ACCEPT 2>/dev/null || true
+ExecStopPost=/sbin/iptables -D FORWARD -i wg0 -j ACCEPT 2>/dev/null || true
+ExecStopPost=/sbin/iptables -D FORWARD -o wg0 -j ACCEPT 2>/dev/null || true
+
+# Remove TUN interface
+ExecStopPost=/sbin/ip link delete tun0 2>/dev/null || true
+
+# Restart policy
+Restart=always
+RestartSec=15s
+
+# Timeout settings
+TimeoutStartSec=60s
+TimeoutStopSec=30s
+
+# Kill settings
+KillMode=mixed
+KillSignal=SIGTERM
+
+# Resource limits
+# این client معمولاً منابع بیشتری نسبت به server نیاز داره
+LimitNOFILE=1048576
+LimitNPROC=1024
+LimitMEMLOCK=infinity
+
+# Memory limit (optional - براساس RAM سرور تنظیم کن)
+# با 500 resolver معمولاً 4-8 GB RAM لازمه
+#MemoryMax=8G
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=slipstream-client
+
+[Install]
+WantedBy=multi-user.target
+
+# ===========================================
+# راهنمای نصب و استفاده
+# ===========================================
+#
+# 1. کپی این فایل به systemd:
+#    cp slipstream-client.service /etc/systemd/system/
+#
+# 2. Reload systemd:
+#    systemctl daemon-reload
+#
+# 3. Enable برای auto-start:
+#    systemctl enable slipstream-client
+#
+# 4. شروع service:
+#    systemctl start slipstream-client
+#
+# 5. بررسی status:
+#    systemctl status slipstream-client
+#
+# 6. دیدن logs:
+#    journalctl -u slipstream-client -f
+#
+# 7. بررسی tunnel interface:
+#    ip addr show tun0
+#    ifconfig tun0
+#
+# 8. تست connectivity:
+#    ping -c 3 10.0.0.1  # ping به gateway
+#
+# ===========================================
+# Troubleshooting
+# ===========================================
+#
+# اگر service start نمیشه:
+#
+# 1. چک کن binary موجود است:
+#    which slipstream
+#
+# 2. چک کن resolvers.txt حداقل چند IP داره:
+#    wc -l /etc/slipstream/resolvers.txt
+#    head -n 10 /etc/slipstream/resolvers.txt
+#
+# 3. تست manual:
+#    /usr/local/bin/slipstream client \
+#      --config /etc/slipstream/client.conf \
+#      --resolvers /etc/slipstream/resolvers.txt \
+#      --debug
+#
+# 4. چک کن TUN kernel module load شده:
+#    lsmod | grep tun
+#    modprobe tun
+#
+# 5. چک کن IP forwarding فعال است:
+#    sysctl net.ipv4.ip_forward
+#
+# 6. اگر iptables error میده:
+#    iptables -L -n -v
+#    iptables -t nat -L -n -v
+#
+# 7. DNS resolution تست کن:
+#    dig @8.8.8.8 t.irihost.com
+#    nslookup t.irihost.com 8.8.8.8
+#
+# 8. چک کن هیچ firewall دیگه‌ای block نمیکنه:
+#    ufw status
+#    firewall-cmd --list-all
+#
+# ===========================================
+# Performance Monitoring
+# ===========================================
+#
+# مانیتور کردن منابع:
+#   systemctl status slipstream-client
+#   top -p $(pgrep slipstream)
+#   htop -p $(pgrep slipstream)
+#
+# مانیتور کردن شبکه:
+#   iftop -i tun0
+#   nethogs tun0
+#   vnstat -i tun0 -l
+#
+# آمار systemd:
+#   systemd-cgtop
+#
+# ===========================================

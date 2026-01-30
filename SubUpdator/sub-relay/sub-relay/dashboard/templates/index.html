@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sub-Relay Dashboard</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #eee;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #00d9ff;
+            text-shadow: 0 0 20px rgba(0, 217, 255, 0.3);
+            font-size: 2.5em;
+        }
+        
+        .card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+        
+        .card h2 {
+            color: #00d9ff;
+            margin-bottom: 20px;
+            font-size: 1.3em;
+            border-bottom: 2px solid rgba(0, 217, 255, 0.3);
+            padding-bottom: 10px;
+        }
+        
+        .mode-badge {
+            display: inline-block;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-weight: bold;
+            font-size: 1.2em;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+        
+        .mode-wireguard {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .mode-xray {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+        
+        .mode-unknown {
+            background: linear-gradient(135deg, #666 0%, #999 100%);
+        }
+        
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 15px;
+        }
+        
+        .status-item {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 18px;
+            border-radius: 10px;
+            transition: transform 0.2s;
+        }
+        
+        .status-item:hover {
+            transform: translateY(-2px);
+            background: rgba(0, 0, 0, 0.4);
+        }
+        
+        .status-item .label {
+            font-size: 0.9em;
+            color: #aaa;
+            margin-bottom: 8px;
+        }
+        
+        .status-item .value {
+            font-size: 1.15em;
+            font-weight: bold;
+        }
+        
+        .status-ok { color: #00ff88; }
+        .status-error { color: #ff4757; }
+        .status-warning { color: #ffa502; }
+        .status-info { color: #3498db; }
+        
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1em;
+            margin: 5px;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+        
+        .btn-wireguard {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn-xray {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+        
+        .btn-neutral {
+            background: linear-gradient(135deg, #444 0%, #666 100%);
+            color: white;
+        }
+        
+        .timestamp {
+            text-align: center;
+            color: #666;
+            margin-top: 30px;
+            font-size: 0.9em;
+        }
+        
+        .actions {
+            text-align: center;
+            margin-top: 25px;
+        }
+        
+        .info-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .info-table td {
+            padding: 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .info-table td:first-child {
+            color: #aaa;
+            width: 30%;
+        }
+        
+        .info-table td:last-child {
+            color: #eee;
+            font-weight: 500;
+            word-break: break-all;
+        }
+        
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 1.8em;
+            }
+            
+            .status-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .btn {
+                display: block;
+                width: 100%;
+                margin: 10px 0;
+            }
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #aaa;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌐 Sub-Relay Dashboard</h1>
+        
+        <!-- مدل فعال -->
+        <div class="card" style="text-align: center;">
+            <h2>مدل فعال</h2>
+            <span class="mode-badge mode-{{ mode }}">
+                {% if mode == 'wireguard' %}
+                    🔒 WireGuard Mode
+                {% elif mode == 'xray' %}
+                    ⚡ Xray SOCKS5 Mode
+                {% else %}
+                    ❓ Unknown Mode
+                {% endif %}
+            </span>
+        </div>
+        
+        <!-- وضعیت سرویس‌ها -->
+        <div class="card">
+            <h2>📊 وضعیت سرویس‌ها</h2>
+            <div class="status-grid">
+                {% for name, status in services.items() %}
+                {% if status %}
+                <div class="status-item">
+                    <div class="label">{{ name|upper }}</div>
+                    <div class="value {% if status.active %}status-ok{% else %}status-error{% endif %}">
+                        {% if status.active %}
+                            ✅ فعال
+                        {% else %}
+                            ❌ غیرفعال
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+        
+        <!-- وضعیت اتصالات -->
+        <div class="card">
+            <h2>🔗 وضعیت اتصالات</h2>
+            <div class="status-grid">
+                <!-- Google Direct -->
+                <div class="status-item">
+                    <div class="label">🌍 Google (مستقیم)</div>
+                    <div class="value {% if connectivity.google_direct.status == 'ok' %}status-ok{% else %}status-error{% endif %}">
+                        {% if connectivity.google_direct.status == 'ok' %}
+                            ✅ {{ connectivity.google_direct.latency_ms }} ms
+                        {% else %}
+                            ❌ {{ connectivity.google_direct.error|default('خطا')|truncate(30) }}
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <!-- Tunnel Status -->
+                <div class="status-item">
+                    <div class="label">🚇 تانل ({{ mode|upper }})</div>
+                    <div class="value 
+                        {% if mode == 'wireguard' %}
+                            {% if connectivity.tunnel.connected %}status-ok{% else %}status-warning{% endif %}
+                        {% else %}
+                            {% if connectivity.tunnel.listening %}status-ok{% else %}status-error{% endif %}
+                        {% endif %}
+                    ">
+                        {% if mode == 'wireguard' %}
+                            {% if connectivity.tunnel.connected %}
+                                ✅ متصل شده
+                            {% elif connectivity.tunnel.status == 'up' %}
+                                ⚠️ بدون handshake
+                            {% else %}
+                                ❌ قطع شده
+                            {% endif %}
+                        {% else %}
+                            {% if connectivity.tunnel.listening %}
+                                ✅ پورت {{ connectivity.tunnel.port }}
+                            {% else %}
+                                ❌ غیرفعال
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <!-- Panel Status -->
+                <div class="status-item">
+                    <div class="label">🎛️ پنل مرزبان</div>
+                    <div class="value {% if connectivity.panel.status == 'ok' %}status-ok{% else %}status-error{% endif %}">
+                        {% if connectivity.panel.status == 'ok' %}
+                            ✅ {{ connectivity.panel.latency_ms }} ms
+                        {% else %}
+                            ❌ {{ connectivity.panel.error|default('خطا')|truncate(30) }}
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <!-- Subscription Endpoint -->
+                <div class="status-item">
+                    <div class="label">📡 Sub Endpoint</div>
+                    <div class="value {% if connectivity.sub_endpoint.status == 'ok' %}status-ok{% else %}status-error{% endif %}">
+                        {% if connectivity.sub_endpoint.status == 'ok' %}
+                            ✅ {{ connectivity.sub_endpoint.latency_ms }} ms
+                        {% else %}
+                            ❌ {{ connectivity.sub_endpoint.error|default('خطا')|truncate(30) }}
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- تنظیمات -->
+        <div class="card">
+            <h2>⚙️ تنظیمات فعلی</h2>
+            <table class="info-table">
+                <tr>
+                    <td>Panel URL:</td>
+                    <td>{{ config.panel_url }}</td>
+                </tr>
+                <tr>
+                    <td>Subscription Domain:</td>
+                    <td>{{ config.sub_domain }}</td>
+                </tr>
+                <tr>
+                    <td>Subscription Path:</td>
+                    <td>{{ config.sub_path }}</td>
+                </tr>
+                <tr>
+                    <td>Full Sub URL:</td>
+                    <td><a href="https://{{ config.sub_domain }}{{ config.sub_path }}" target="_blank" style="color: #00d9ff;">
+                        https://{{ config.sub_domain }}{{ config.sub_path }}
+                    </a></td>
+                </tr>
+            </table>
+        </div>
+        
+        <!-- دکمه‌های تغییر مدل -->
+        <div class="actions">
+            <button class="btn btn-wireguard" onclick="switchMode('wireguard')">
+                🔒 تغییر به WireGuard
+            </button>
+            <button class="btn btn-xray" onclick="switchMode('xray')">
+                ⚡ تغییر به Xray
+            </button>
+            <button class="btn btn-neutral" onclick="location.reload()">
+                🔄 رفرش صفحه
+            </button>
+        </div>
+        
+        <div class="timestamp">
+            آخرین بروزرسانی: {{ timestamp }}
+        </div>
+    </div>
+    
+    <script>
+        async function switchMode(mode) {
+            const modeName = mode === 'wireguard' ? 'WireGuard' : 'Xray SOCKS5';
+            
+            if (!confirm(`آیا مطمئن هستید که می‌خواهید به مدل ${modeName} تغییر دهید؟\n\nاین عملیات ممکن است چند ثانیه طول بکشد.`)) {
+                return;
+            }
+            
+            try {
+                // نمایش loading
+                const loadingMsg = document.createElement('div');
+                loadingMsg.className = 'loading';
+                loadingMsg.innerHTML = '<h2>⏳ در حال تغییر مدل...</h2><p>لطفاً صبر کنید</p>';
+                loadingMsg.style.position = 'fixed';
+                loadingMsg.style.top = '50%';
+                loadingMsg.style.left = '50%';
+                loadingMsg.style.transform = 'translate(-50%, -50%)';
+                loadingMsg.style.background = 'rgba(0,0,0,0.9)';
+                loadingMsg.style.padding = '40px';
+                loadingMsg.style.borderRadius = '15px';
+                loadingMsg.style.zIndex = '9999';
+                document.body.appendChild(loadingMsg);
+                
+                const resp = await fetch(`/api/switch/${mode}`, {
+                    method: 'POST'
+                });
+                const data = await resp.json();
+                
+                document.body.removeChild(loadingMsg);
+                
+                if (data.success) {
+                    alert(`✅ مدل با موفقیت به ${modeName} تغییر کرد!\n\nصفحه رفرش می‌شود...`);
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    alert(`❌ خطا در تغییر مدل:\n\n${data.error || 'نامشخص'}`);
+                }
+            } catch (e) {
+                alert(`❌ خطا در ارتباط با سرور:\n\n${e.message}`);
+            }
+        }
+        
+        // Auto refresh هر 30 ثانیه
+        setTimeout(() => {
+            location.reload();
+        }, 30000);
+    </script>
+</body>
+</html>

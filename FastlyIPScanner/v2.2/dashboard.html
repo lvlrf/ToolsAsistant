@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dr.CDN-Scanner - Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1500px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 50px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 { font-size: 2.5em; margin-bottom: 10px; }
+        .header p { font-size: 1.1em; opacity: 0.9; }
+        .admin-badge {
+            background: #ffc107;
+            color: #000;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            margin-top: 10px;
+            display: none;
+        }
+        .admin-badge.active { display: inline-block; }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 15px;
+            padding: 25px;
+            background: #f8f9fa;
+        }
+        .stat-card {
+            background: white;
+            padding: 16px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 1.6em;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+        .stat-label {
+            color: #666;
+            font-size: 0.8em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .cdn-stats {
+            padding: 12px 25px;
+            background: #e8f4fd;
+            border-bottom: 1px solid #bee3f8;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+            font-size: 0.9em;
+        }
+        .cdn-stat {
+            background: white;
+            padding: 6px 12px;
+            border-radius: 15px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .cdn-stat.cloudflare { border-left: 3px solid #f6821f; }
+        .cdn-stat.fastly { border-left: 3px solid #ff282d; }
+        .cdn-stat.gcore { border-left: 3px solid #00b4d8; }
+        .cdn-stat.unknown { border-left: 3px solid #6c757d; }
+        .test-stat { background: #f0fff4; border-left: 3px solid #38a169; }
+        .controls {
+            padding: 15px 25px;
+            background: white;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .control-group label { font-weight: 600; color: #333; font-size: 0.85em; }
+        .control-group select,
+        .control-group input[type="text"],
+        .control-group input[type="date"] {
+            padding: 6px 8px;
+            border: 2px solid #e0e0e0;
+            border-radius: 5px;
+            font-size: 0.9em;
+        }
+        .control-group input[type="text"] { width: 130px; }
+        .control-group input[type="date"] { width: 130px; }
+        .control-group input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+        .btn {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.85em;
+            transition: all 0.3s;
+        }
+        .btn-primary { background: #667eea; color: white; }
+        .btn-primary:hover { background: #5568d3; }
+        .btn-success { background: #10b981; color: white; }
+        .btn-success:hover { background: #059669; }
+        .btn-warning { background: #f59e0b; color: white; }
+        .btn-warning:hover { background: #d97706; }
+        .btn-secondary { background: #6b7280; color: white; }
+        .btn-secondary:hover { background: #4b5563; }
+        .results-container { padding: 15px 25px; overflow-x: auto; }
+        .results-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85em;
+        }
+        .results-table th {
+            background: #1e293b;
+            color: white;
+            padding: 10px 8px;
+            text-align: left;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            cursor: pointer;
+            user-select: none;
+            white-space: nowrap;
+        }
+        .results-table th:hover { background: #334155; }
+        .results-table th .sort-icon { margin-left: 5px; opacity: 0.5; }
+        .results-table th.sorted .sort-icon { opacity: 1; }
+        .results-table td {
+            padding: 8px;
+            border-bottom: 1px solid #e2e8f0;
+            vertical-align: middle;
+        }
+        .results-table tr:hover { background: #f8fafc; }
+        .results-table tr.non-official { background: #fef3c7; }
+        .results-table tr.non-official:hover { background: #fde68a; }
+        .ip-cell {
+            font-family: 'Courier New', monospace;
+            font-weight: 600;
+            color: #1e40af;
+            cursor: pointer;
+        }
+        .ip-cell:hover { color: #667eea; background: #f0f9ff; border-radius: 4px; }
+        .port-badges { display: flex; flex-wrap: wrap; gap: 3px; }
+        .port-badge {
+            padding: 2px 6px;
+            border-radius: 8px;
+            font-size: 0.75em;
+            font-weight: 600;
+        }
+        .port-badge.https { background: #d1fae5; color: #065f46; }
+        .port-badge.http { background: #fef3c7; color: #92400e; }
+        .port-badge.dns { background: #e0e7ff; color: #3730a3; }
+        .cdn-badge {
+            font-size: 0.7em;
+            padding: 2px 6px;
+            border-radius: 8px;
+            font-weight: 600;
+        }
+        .cdn-badge.cloudflare { background: #fff3e0; color: #e65100; }
+        .cdn-badge.fastly { background: #ffebee; color: #c62828; }
+        .cdn-badge.gcore { background: #e0f7fa; color: #00838f; }
+        .cdn-badge.unknown { background: #f5f5f5; color: #616161; }
+        .test-badge {
+            font-size: 0.7em;
+            padding: 2px 5px;
+            border-radius: 6px;
+            font-weight: 600;
+        }
+        .test-badge.port { background: #e0e0e0; color: #424242; }
+        .test-badge.tls { background: #e3f2fd; color: #1565c0; }
+        .test-badge.real { background: #e8f5e9; color: #2e7d32; }
+        .test-badge.download { background: #f3e5f5; color: #7b1fa2; }
+        .test-badge.udp { background: #fff3e0; color: #e65100; }
+        .test-badge.dns { background: #e0e7ff; color: #3730a3; }
+        .test-badge.dnstt { background: #fce4ec; color: #c2185b; }
+        .scanner-cell { color: #374151; font-size: 0.85em; }
+        .scanner-count { font-weight: 600; color: #667eea; }
+        .scanner-ips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 3px;
+            margin-top: 3px;
+        }
+        .scanner-ip {
+            background: #dbeafe;
+            color: #1e40af;
+            padding: 1px 6px;
+            border-radius: 8px;
+            font-size: 0.7em;
+            font-family: monospace;
+            cursor: pointer;
+        }
+        .scanner-ip:hover { background: #93c5fd; }
+        .delay-cell { color: #059669; font-weight: 600; }
+        .speed-cell { color: #7c3aed; font-weight: 600; }
+        .no-results, .loading, .error {
+            text-align: center;
+            padding: 40px;
+            font-size: 1.1em;
+        }
+        .no-results { color: #999; }
+        .loading { color: #667eea; }
+        .error { background: #fee2e2; color: #991b1b; margin: 20px; border-radius: 8px; }
+        .footer {
+            background: #f8f9fa;
+            padding: 15px;
+            text-align: center;
+            border-top: 1px solid #e0e0e0;
+            color: #666;
+            font-size: 0.9em;
+        }
+        .footer a { color: #667eea; text-decoration: none; font-weight: 600; }
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #1e293b;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.3s;
+            z-index: 1000;
+        }
+        .toast.show { opacity: 1; transform: translateY(0); }
+        .results-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: #666;
+            font-size: 0.85em;
+            padding: 5px 0;
+        }
+        .help-text {
+            font-size: 0.75em;
+            color: #888;
+            margin-left: 10px;
+        }
+        @media (max-width: 768px) {
+            .header h1 { font-size: 1.5em; }
+            .stats-grid { grid-template-columns: 1fr 1fr; }
+            .controls { flex-direction: column; align-items: stretch; }
+            .results-table { font-size: 0.75em; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 Dr.CDN-Scanner</h1>
+            <p>Working IPs Dashboard - Helping Iranians Access the Internet</p>
+            <span class="admin-badge" id="adminBadge">🔐 Admin Mode</span>
+        </div>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value" id="workingIPs">0</div>
+                <div class="stat-label">Working IPs</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="totalScans">0</div>
+                <div class="stat-label">Total Scans</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="totalScanners">0</div>
+                <div class="stat-label">Scanners</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="realTested">0</div>
+                <div class="stat-label">Real Tested</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="officialCount">0</div>
+                <div class="stat-label">Official CDN</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="lastUpdated">-</div>
+                <div class="stat-label">Updated</div>
+            </div>
+        </div>
+        <div class="cdn-stats" id="cdnStats">Loading...</div>
+        <div class="controls">
+            <div class="control-group">
+                <label>🔍</label>
+                <input type="text" id="searchIP" placeholder="Search IP...">
+            </div>
+            <div class="control-group">
+                <label>CDN:</label>
+                <select id="cdnFilter">
+                    <option value="all">All</option>
+                    <option value="cloudflare">Cloudflare</option>
+                    <option value="fastly">Fastly</option>
+                    <option value="gcore">Gcore</option>
+                    <option value="unknown">Unknown</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label>Port:</label>
+                <select id="portFilter">
+                    <option value="all">All</option>
+                    <option value="443">443</option>
+                    <option value="8443">8443</option>
+                    <option value="80">80</option>
+                    <option value="8080">8080</option>
+                    <option value="53">53 (DNS)</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label>Test:</label>
+                <select id="testFilter">
+                    <option value="all">All</option>
+                    <option value="download">Download ⭐</option>
+                    <option value="real">Real Delay</option>
+                    <option value="tls">TLS/HTTP</option>
+                    <option value="dns">DNS</option>
+                    <option value="dnstt">DNSTT 🔗</option>
+                    <option value="udp">UDP</option>
+                    <option value="port">Port</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label>From:</label>
+                <input type="date" id="dateFrom">
+            </div>
+            <div class="control-group">
+                <label>To:</label>
+                <input type="date" id="dateTo">
+            </div>
+            <div class="control-group">
+                <input type="checkbox" id="onlyOfficial" checked>
+                <label for="onlyOfficial">Official CDN only</label>
+                <span class="help-text">(uncheck to see all)</span>
+            </div>
+        </div>
+        <div class="controls" style="border-top: 1px dashed #e0e0e0;">
+            <button class="btn btn-primary" id="btnRefresh">🔄 Refresh</button>
+            <button class="btn btn-success" id="btnDownloadFiltered">📥 Filtered</button>
+            <button class="btn btn-secondary" id="btnDownloadAll">📥 All</button>
+            <span id="adminControl" style="display: none;">
+                <button class="btn btn-warning" id="btnAggregate">⚡ Aggregate</button>
+            </span>
+            <div class="results-info" style="margin-left: auto;">
+                <span id="resultsCount">0 results</span>
+            </div>
+        </div>
+        <div class="results-container">
+            <div id="resultsContainer">
+                <div class="loading">Loading data...</div>
+            </div>
+        </div>
+        <div class="footer">
+            <p>Developed by <strong>DrConnect</strong> | <a href="https://t.me/drconnect">@drconnect</a> | v2.1</p>
+        </div>
+    </div>
+    <div class="toast" id="toast"></div>
+    <script>
+        var allResults = [];
+        var filteredResults = [];
+        var isAdmin = false;
+        var ADMIN_KEY = 'DrConnect2025Admin';
+        var HTTPS_PORTS = [443, 8443, 2053, 2083, 2087, 2096];
+        var TEST_PRIORITY = {port: 1, tls: 2, udp: 2, dns: 2, dnstt: 3, real: 3, download: 4};
+        var currentSort = {column: 'total_success', direction: 'desc'};
+
+        function showToast(msg) {
+            var t = document.getElementById('toast');
+            t.textContent = msg;
+            t.classList.add('show');
+            setTimeout(function() { t.classList.remove('show'); }, 2500);
+        }
+
+        function doCopy(text) {
+            var ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.cssText = 'position:fixed;left:-9999px;';
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            showToast('📋 Copied: ' + text);
+        }
+
+        function checkAdminMode() {
+            var p = new URLSearchParams(window.location.search);
+            if (p.get('key') === ADMIN_KEY) {
+                isAdmin = true;
+                document.getElementById('adminBadge').classList.add('active');
+                document.getElementById('adminControl').style.display = 'inline';
+            }
+        }
+
+        function getPorts(item) {
+            if (item.port_numbers && Array.isArray(item.port_numbers)) return item.port_numbers;
+            if (item.ports && Array.isArray(item.ports)) {
+                if (item.ports.length > 0 && typeof item.ports[0] === 'object') {
+                    return item.ports.map(function(p) { return p.port; });
+                }
+                return item.ports;
+            }
+            return [];
+        }
+
+        function getScanners(item) {
+            return (item.scanners && Array.isArray(item.scanners)) ? item.scanners : [];
+        }
+
+        function isOfficialCDN(item) {
+            // Check multiple ways
+            if (typeof item.is_official === 'boolean') return item.is_official;
+            if (item.is_official === 'true' || item.is_official === true) return true;
+            if (item.is_official === 'false' || item.is_official === false) return false;
+            // If is_official is not set, check by CDN type
+            var cdn = (item.cdn || '').toLowerCase();
+            return cdn === 'cloudflare' || cdn === 'fastly' || cdn === 'gcore';
+        }
+
+        function loadData() {
+            var endpoint = isAdmin ? 'aggregated/admin_results.json' : 'aggregated/results.json';
+            fetch(endpoint + '?t=' + Date.now())
+                .then(function(r) { 
+                    if (!r.ok) throw new Error('HTTP ' + r.status); 
+                    return r.json(); 
+                })
+                .then(function(data) {
+                    allResults = data.results || [];
+                    updateStats(data.metadata);
+                    updateCdnStats(data.metadata);
+                    filterAndDisplay();
+                })
+                .catch(function(e) {
+                    console.error('Load error:', e);
+                    document.getElementById('resultsContainer').innerHTML = 
+                        '<div class="error">⚠️ Failed to load data: ' + e.message + '</div>';
+                });
+        }
+
+        function updateStats(m) {
+            if (!m) return;
+            document.getElementById('workingIPs').textContent = (m.working_ips || 0).toLocaleString();
+            document.getElementById('totalScans').textContent = (m.total_scans || 0).toLocaleString();
+            document.getElementById('totalScanners').textContent = (m.total_scanners || 0).toLocaleString();
+            
+            var realCount = 0;
+            if (m.by_test_type) {
+                realCount = (m.by_test_type.real || 0) + (m.by_test_type.download || 0);
+            }
+            document.getElementById('realTested').textContent = realCount.toLocaleString();
+            document.getElementById('officialCount').textContent = (m.official_ips || m.fastly_ips || 0).toLocaleString();
+            
+            if (m.generated) {
+                document.getElementById('lastUpdated').textContent = getTimeAgo(new Date(m.generated));
+            }
+        }
+
+        function updateCdnStats(m) {
+            var c = document.getElementById('cdnStats');
+            if (!m) { c.innerHTML = ''; return; }
+            
+            var html = '<strong>CDN:</strong> ';
+            
+            if (m.by_cdn) {
+                ['cloudflare', 'fastly', 'gcore', 'unknown'].forEach(function(cdn) {
+                    var count = m.by_cdn[cdn] || 0;
+                    if (count > 0) {
+                        html += '<span class="cdn-stat ' + cdn + '">' + 
+                                cdn.charAt(0).toUpperCase() + cdn.slice(1) + ': ' + count + '</span>';
+                    }
+                });
+            }
+            
+            if (m.by_test_type) {
+                html += ' <strong style="margin-left:15px">Tests:</strong> ';
+                ['download', 'real', 'tls', 'dns', 'udp', 'port'].forEach(function(t) {
+                    var count = m.by_test_type[t] || 0;
+                    if (count > 0) {
+                        html += '<span class="cdn-stat test-stat">' + t + ': ' + count + '</span>';
+                    }
+                });
+            }
+            
+            c.innerHTML = html;
+        }
+
+        function filterAndDisplay() {
+            var search = document.getElementById('searchIP').value.toLowerCase();
+            var cdnFilter = document.getElementById('cdnFilter').value;
+            var portFilter = document.getElementById('portFilter').value;
+            var testFilter = document.getElementById('testFilter').value;
+            var onlyOfficial = document.getElementById('onlyOfficial').checked;
+            var dateFrom = document.getElementById('dateFrom').value;
+            var dateTo = document.getElementById('dateTo').value;
+
+            filteredResults = allResults.filter(function(item) {
+                // Official CDN filter
+                if (onlyOfficial && !isOfficialCDN(item)) return false;
+                
+                // IP search
+                var ip = String(item.ip || '');
+                if (search && ip.indexOf(search) === -1) return false;
+                
+                // CDN filter
+                if (cdnFilter !== 'all') {
+                    var itemCdn = (item.cdn || 'unknown').toLowerCase();
+                    if (itemCdn !== cdnFilter) return false;
+                }
+                
+                // Port filter
+                if (portFilter !== 'all') {
+                    if (getPorts(item).indexOf(parseInt(portFilter)) === -1) return false;
+                }
+                
+                // Test type filter
+                if (testFilter !== 'all') {
+                    var itemTest = (item.best_test_type || 'port').toLowerCase();
+                    if (testFilter === 'download' && itemTest !== 'download') return false;
+                    if (testFilter === 'real' && itemTest !== 'real' && itemTest !== 'download') return false;
+                    if (testFilter === 'tls' && !['tls', 'real', 'download'].includes(itemTest)) return false;
+                    if (testFilter === 'dns' && itemTest !== 'dns') return false;
+                    if (testFilter === 'udp' && itemTest !== 'udp' && itemTest !== 'dns') return false;
+                }
+                
+                // Date filter
+                if (dateFrom || dateTo) {
+                    var itemDate = new Date(item.last_seen);
+                    if (isNaN(itemDate.getTime())) return true; // Keep if no date
+                    
+                    if (dateFrom) {
+                        var from = new Date(dateFrom);
+                        from.setHours(0, 0, 0, 0);
+                        if (itemDate < from) return false;
+                    }
+                    if (dateTo) {
+                        var to = new Date(dateTo);
+                        to.setHours(23, 59, 59, 999);
+                        if (itemDate > to) return false;
+                    }
+                }
+                
+                return true;
+            });
+
+            // Sort
+            sortResults();
+            displayResults(filteredResults);
+        }
+
+        function sortResults() {
+            var col = currentSort.column;
+            var dir = currentSort.direction;
+            
+            filteredResults.sort(function(a, b) {
+                var va, vb;
+                
+                switch(col) {
+                    case 'ip':
+                        va = a.ip || '';
+                        vb = b.ip || '';
+                        break;
+                    case 'cdn':
+                        va = a.cdn || '';
+                        vb = b.cdn || '';
+                        break;
+                    case 'ports':
+                        va = getPorts(a).length;
+                        vb = getPorts(b).length;
+                        break;
+                    case 'test':
+                        va = TEST_PRIORITY[a.best_test_type] || 0;
+                        vb = TEST_PRIORITY[b.best_test_type] || 0;
+                        break;
+                    case 'delay':
+                        va = a.best_delay || 99999;
+                        vb = b.best_delay || 99999;
+                        break;
+                    case 'speed':
+                        va = a.best_speed || 0;
+                        vb = b.best_speed || 0;
+                        break;
+                    case 'scanners':
+                        va = a.scanner_count || getScanners(a).length || 0;
+                        vb = b.scanner_count || getScanners(b).length || 0;
+                        break;
+                    case 'last_seen':
+                        va = new Date(a.last_seen || 0).getTime();
+                        vb = new Date(b.last_seen || 0).getTime();
+                        break;
+                    case 'total_success':
+                    default:
+                        va = a.total_success || 0;
+                        vb = b.total_success || 0;
+                }
+                
+                if (typeof va === 'string') {
+                    return dir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
+                }
+                return dir === 'asc' ? va - vb : vb - va;
+            });
+        }
+
+        function handleSort(column) {
+            if (currentSort.column === column) {
+                currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                currentSort.column = column;
+                currentSort.direction = 'desc';
+            }
+            filterAndDisplay();
+        }
+
+        function displayResults(results) {
+            var c = document.getElementById('resultsContainer');
+            document.getElementById('resultsCount').textContent = results.length + ' results';
+            
+            if (!results || results.length === 0) {
+                c.innerHTML = '<div class="no-results">📭 No results found</div>';
+                return;
+            }
+
+            var columns = [
+                {key: 'ip', label: 'IP Address'},
+                {key: 'cdn', label: 'CDN'},
+                {key: 'ports', label: 'Ports'},
+                {key: 'test', label: 'Test'},
+                {key: 'delay', label: 'Delay'},
+                {key: 'speed', label: 'Speed'},
+                {key: 'total_success', label: 'Success'},
+                {key: 'scanners', label: 'Scanners'},
+                {key: 'last_seen', label: 'Last'}
+            ];
+
+            var h = '<table class="results-table"><thead><tr>';
+            columns.forEach(function(col) {
+                var sorted = currentSort.column === col.key ? 'sorted' : '';
+                var arrow = currentSort.column === col.key ? 
+                    (currentSort.direction === 'asc' ? '▲' : '▼') : '↕';
+                h += '<th class="' + sorted + '" data-sort="' + col.key + '">' + 
+                     col.label + '<span class="sort-icon">' + arrow + '</span></th>';
+            });
+            h += '</tr></thead><tbody>';
+
+            results.forEach(function(item) {
+                var ip = String(item.ip || '');
+                var rc = isOfficialCDN(item) ? '' : 'non-official';
+                
+                var cdnClass = (item.cdn || 'unknown').toLowerCase();
+                var cdnBadge = '<span class="cdn-badge ' + cdnClass + '">' + (item.cdn || 'N/A') + '</span>';
+                
+                var ports = getPorts(item);
+                var ph = '<div class="port-badges">';
+                ports.slice(0, 4).forEach(function(p) {
+                    var pc = p === 53 ? 'dns' : (HTTPS_PORTS.indexOf(p) !== -1 ? 'https' : 'http');
+                    ph += '<span class="port-badge ' + pc + '">' + p + '</span>';
+                });
+                if (ports.length > 4) ph += '<span class="port-badge">+' + (ports.length - 4) + '</span>';
+                ph += '</div>';
+
+                var testType = (item.best_test_type || 'port').toLowerCase();
+                var testBadge = '<span class="test-badge ' + testType + '">' + testType + '</span>';
+
+                var delay = item.best_delay ? '<span class="delay-cell">' + Math.round(item.best_delay) + 'ms</span>' : '-';
+                var speed = item.best_speed ? '<span class="speed-cell">' + Math.round(item.best_speed) + 'KB/s</span>' : '-';
+                var success = '<strong>' + (item.total_success || 0) + '</strong>';
+
+                var scanners = getScanners(item);
+                var sc = item.scanner_count || scanners.length || 0;
+                var sh = '<span class="scanner-count">👥 ' + sc + '</span>';
+                if (isAdmin && scanners.length > 0) {
+                    sh += '<div class="scanner-ips">';
+                    scanners.slice(0, 2).forEach(function(sip) {
+                        sh += '<span class="scanner-ip" data-ip="' + sip + '">' + sip + '</span>';
+                    });
+                    if (scanners.length > 2) sh += '<span class="scanner-ip">+' + (scanners.length - 2) + '</span>';
+                    sh += '</div>';
+                }
+
+                h += '<tr class="' + rc + '">';
+                h += '<td><span class="ip-cell" data-ip="' + ip + '">' + ip + '</span></td>';
+                h += '<td>' + cdnBadge + '</td>';
+                h += '<td>' + ph + '</td>';
+                h += '<td>' + testBadge + '</td>';
+                h += '<td>' + delay + '</td>';
+                h += '<td>' + speed + '</td>';
+                h += '<td>' + success + '</td>';
+                h += '<td class="scanner-cell">' + sh + '</td>';
+                h += '<td>' + getTimeAgo(new Date(item.last_seen)) + '</td>';
+                h += '</tr>';
+            });
+
+            h += '</tbody></table>';
+            c.innerHTML = h;
+
+            // Add sort click handlers
+            document.querySelectorAll('.results-table th[data-sort]').forEach(function(th) {
+                th.addEventListener('click', function() {
+                    handleSort(this.getAttribute('data-sort'));
+                });
+            });
+        }
+
+        function getTimeAgo(d) {
+            if (!d || isNaN(d.getTime())) return '-';
+            var s = Math.floor((new Date() - d) / 1000);
+            if (s < 60) return 'now';
+            var iv = [['y',31536000],['mo',2592000],['w',604800],['d',86400],['h',3600],['m',60]];
+            for (var i = 0; i < iv.length; i++) {
+                var n = Math.floor(s / iv[i][1]);
+                if (n >= 1) return n + iv[i][0];
+            }
+            return 'now';
+        }
+
+        function downloadCSV(all) {
+            var data = all ? allResults : filteredResults;
+            if (data.length === 0) { showToast('No data to download'); return; }
+            
+            var csv = 'IP,CDN,Ports,Test_Type,Delay_ms,Speed_KB,Success,Scanner_Count,Is_Official,Last_Seen';
+            if (isAdmin) csv += ',Scanner_IPs';
+            csv += '\n';
+            
+            data.forEach(function(item) {
+                var row = [
+                    String(item.ip||''),
+                    item.cdn || '',
+                    '"' + getPorts(item).join(';') + '"',
+                    item.best_test_type || 'port',
+                    item.best_delay || '',
+                    item.best_speed || '',
+                    item.total_success || 0,
+                    item.scanner_count || getScanners(item).length || 0,
+                    isOfficialCDN(item) ? 'Yes' : 'No',
+                    item.last_seen || ''
+                ];
+                if (isAdmin) row.push('"' + getScanners(item).join(';') + '"');
+                csv += row.join(',') + '\n';
+            });
+            
+            var b = new Blob([csv], {type:'text/csv'});
+            var a = document.createElement('a');
+            a.href = URL.createObjectURL(b);
+            a.download = 'cdn_ips_' + (all ? 'all' : 'filtered') + '_' + new Date().toISOString().split('T')[0] + '.csv';
+            a.click();
+            showToast('📥 Downloaded ' + data.length + ' records');
+        }
+
+        function triggerAggregation() {
+            if (!isAdmin) return;
+            showToast('⏳ Running aggregation...');
+            
+            fetch('/api/aggregate', {method:'POST'})
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data.status === 'ok') {
+                        showToast('✅ Aggregation completed!');
+                        setTimeout(loadData, 1500);
+                    } else {
+                        showToast('⚠️ Failed: ' + (data.message || 'Unknown error'));
+                    }
+                })
+                .catch(function(e) { 
+                    showToast('⚠️ Error: ' + e.message); 
+                });
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            checkAdminMode();
+            
+            // Set default date range (last 30 days)
+            var today = new Date();
+            var monthAgo = new Date(today);
+            monthAgo.setDate(monthAgo.getDate() - 30);
+            // document.getElementById('dateFrom').value = monthAgo.toISOString().split('T')[0];
+            // document.getElementById('dateTo').value = today.toISOString().split('T')[0];
+            
+            loadData();
+
+            document.getElementById('searchIP').addEventListener('input', filterAndDisplay);
+            document.getElementById('cdnFilter').addEventListener('change', filterAndDisplay);
+            document.getElementById('portFilter').addEventListener('change', filterAndDisplay);
+            document.getElementById('testFilter').addEventListener('change', filterAndDisplay);
+            document.getElementById('onlyOfficial').addEventListener('change', filterAndDisplay);
+            document.getElementById('dateFrom').addEventListener('change', filterAndDisplay);
+            document.getElementById('dateTo').addEventListener('change', filterAndDisplay);
+            document.getElementById('btnRefresh').addEventListener('click', loadData);
+            document.getElementById('btnDownloadFiltered').addEventListener('click', function() { downloadCSV(false); });
+            document.getElementById('btnDownloadAll').addEventListener('click', function() { downloadCSV(true); });
+            document.getElementById('btnAggregate').addEventListener('click', triggerAggregation);
+
+            document.getElementById('resultsContainer').addEventListener('click', function(e) {
+                var t = e.target;
+                if (t.hasAttribute('data-ip')) {
+                    doCopy(t.getAttribute('data-ip'));
+                }
+            });
+
+            // Auto refresh every 5 minutes
+            setInterval(loadData, 300000);
+        });
+    </script>
+</body>
+</html>

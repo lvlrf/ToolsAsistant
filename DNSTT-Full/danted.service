@@ -1,0 +1,161 @@
+# Dante SOCKS5 Server Systemd Service
+# نصب در: /etc/systemd/system/danted.service
+# سرور: ایران
+#
+# نکته: معمولاً dante-server با نصب، یک service پیش‌فرض میسازه
+# این service یک نسخه بهینه‌شده برای این پروژه است
+
+[Unit]
+Description=Dante SOCKS5 Server
+Documentation=man:danted(8) man:danted.conf(5)
+After=network-online.target
+Wants=network-online.target
+
+# باید بعد از slipstream client start بشه
+After=slipstream-client.service
+Requires=slipstream-client.service
+
+[Service]
+Type=forking
+
+# User و Group
+User=root
+Group=root
+
+# Config file location
+Environment="CONFFILE=/etc/danted.conf"
+
+# دستور اجرا
+ExecStart=/usr/sbin/danted -f /etc/danted.conf
+
+# Pre-start checks
+ExecStartPre=/usr/bin/test -f /etc/danted.conf
+ExecStartPre=/usr/sbin/danted -V -f /etc/danted.conf
+ExecStartPre=/bin/sh -c 'echo "Starting Dante SOCKS5 server..." | systemd-cat'
+
+# چک کن tun0 up است
+ExecStartPre=/bin/sh -c 'ip link show tun0 > /dev/null 2>&1 || { echo "ERROR: tun0 interface not found!"; exit 1; }'
+
+# Post-start verification
+ExecStartPost=/bin/sleep 2
+ExecStartPost=/bin/sh -c 'netstat -tulpn | grep -q ":1080" && echo "Dante started successfully on port 1080" | systemd-cat'
+
+# Reload configuration
+ExecReload=/bin/kill -HUP $MAINPID
+
+# Stop
+ExecStop=/bin/kill -TERM $MAINPID
+
+# Restart policy
+Restart=on-failure
+RestartSec=10s
+
+# Timeout
+TimeoutStartSec=30s
+TimeoutStopSec=30s
+
+# PID file
+PIDFile=/var/run/danted.pid
+
+# Resource limits
+LimitNOFILE=65535
+LimitNPROC=4096
+
+# ===========================
+# Security Settings (optional)
+# ===========================
+
+# فقط در صورتی که با user غیر root run میکنی uncomment کن
+#NoNewPrivileges=true
+#PrivateTmp=true
+#ProtectSystem=full
+#ProtectHome=true
+
+# ===========================
+# Logging
+# ===========================
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=danted
+
+[Install]
+WantedBy=multi-user.target
+
+# ===========================
+# راهنمای استفاده
+# ===========================
+#
+# 1. کپی این فایل:
+#    cp danted.service /etc/systemd/system/
+#
+# 2. Reload systemd:
+#    systemctl daemon-reload
+#
+# 3. Enable و Start:
+#    systemctl enable danted
+#    systemctl start danted
+#
+# 4. بررسی status:
+#    systemctl status danted
+#
+# 5. بررسی logs:
+#    journalctl -u danted -f
+#
+# 6. تست پورت:
+#    netstat -tulpn | grep 1080
+#    ss -tulpn | grep 1080
+#
+# ===========================
+# Troubleshooting
+# ===========================
+#
+# اگر start نمیشه:
+#
+# 1. چک کن binary موجود است:
+#    which danted
+#    ls -la /usr/sbin/danted
+#
+# 2. تست manual config:
+#    danted -V -f /etc/danted.conf
+#
+# 3. چک کن پورت آزاد است:
+#    netstat -tulpn | grep 1080
+#    lsof -i :1080
+#
+# 4. چک کن slipstream client running است:
+#    systemctl status slipstream-client
+#    ip addr show tun0
+#
+# 5. بررسی permissions:
+#    ls -la /etc/danted.conf
+#    chmod 644 /etc/danted.conf
+#
+# 6. اجرای manual برای debug:
+#    /usr/sbin/danted -f /etc/danted.conf -d 2
+#
+# 7. SELinux/AppArmor check:
+#    getenforce
+#    aa-status
+#
+# ===========================
+# مانیتورینگ
+# ===========================
+#
+# دیدن connection های فعال:
+#   netstat -anp | grep :1080
+#   ss -anp | grep :1080
+#
+# آمار systemd:
+#   systemctl status danted
+#   systemd-cgtop
+#
+# مانیتورینگ traffic:
+#   iftop -i tun0
+#   nethogs tun0
+#
+# Log monitoring:
+#   tail -f /var/log/syslog | grep danted
+#   journalctl -u danted -f --since "10 minutes ago"
+#
+# ===========================

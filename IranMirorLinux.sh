@@ -1,0 +1,504 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# ============================================================
+# Iran Mirror Wizard (Ubuntu APT + pip + npm/yarn)
+# - No periodic checks (no cron/systemd timers)
+# - Discovers known mirrors, tests latency, ranks
+# - Shows numbered list and asks user to select with commas
+# - Applies selected mirrors to:
+#   * Ubuntu APT (deb822 .sources)
+#   * pip (system-wide /etc/pip.conf)
+#   * npm (global registry)
+#   * yarn (global npmRegistryServer)
+# ============================================================
+
+APP_NAME="iran-mirror-wizard"
+STATE_FILE="/etc/${APP_NAME}.state"
+BACKUP_DIR="/etc/${APP_NAME}.backups"
+DRY_RUN=0
+
+log() { echo -e "[$(date +'%F %T')] $*"; }
+warn() { echo -e "[WARN] $*" >&2; }
+die() { echo -e "[ERR] $*" >&2; exit 1; }
+
+need_root() {
+  if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
+    die "این اسکریپت باید با sudo اجرا شود."
+  fi
+}
+
+run_cmd() {
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    log "DRY-RUN: $*"
+  else
+    eval "$@"
+  fi
+}
+
+have() { command -v "$1" >/dev/null 2>&1; }
+
+detect_ubuntu() {
+  [[ -r /etc/os-release ]] || die "/etc/os-release پیدا نشد."
+  # shellcheck disable=SC1091
+  source /etc/os-release
+
+  if [[ "${ID:-}" != "ubuntu" ]]; then
+    die "این اسکریپت برای Ubuntu نوشته شده. (ID=${ID:-unknown})"
+  fi
+
+  UBUNTU_CODENAME="${VERSION_CODENAME:-}"
+  if [[ -z "${UBUNTU_CODENAME}" ]] && have lsb_release; then
+    UBUNTU_CODENAME="$(lsb_release -sc 2>/dev/null || true)"
+  fi
+  [[ -n "${UBUNTU_CODENAME}" ]] || die "نتوانستم codename اوبونتو را تشخیص بدهم."
+
+  log "Ubuntu detected: codename=${UBUNTU_CODENAME}"
+}
+
+# -----------------------------
+# Known mirrors (focused on your needs)
+# Sources inspired by Mirava providers/pages:
+# - KubarCloud: Ubuntu/PyPI/npm  (mirrors.kubarcloud.com + pypi.kubarcloud.com)
+# - ITO archive: pip/npm/yarn    (archive.ito.gov.ir)
+# - Shatel: Ubuntu (archive + ubuntu-security separate)
+# - Runflare: pip/npm mirrors (mirror-pypi / mirror-npm)
+# - ArvanCloud: Ubuntu mirror base (mirror.arvancloud.ir/ubuntu)
+# - IranServer + IUT are listed by Ubuntu IR mirror list
+# -----------------------------
+
+# APT mirrors (main archive endpoints)
+APT_NAMES=(
+  "KubarCloud"
+  "Shatel"
+  "ArvanCloud"
+  "IranServer"
+  "IUT"
+)
+APT_MAIN_URLS=(
+  "https://mirrors.kubarcloud.com/ubuntu/"
+  "http://mirror.shatel.ir/ubuntu"
+  "http://mirror.arvancloud.ir/ubuntu"
+  "http://mirror.iranserver.com/ubuntu/"
+  "http://repo.iut.ac.ir/repo/Ubuntu/"
+)
+
+# Some mirrors provide explicit security endpoint (Shatel does).
+# Others: we will always keep official security.ubuntu.com as fallback.
+APT_SECURITY_NAMES=(
+  "Shatel (ubuntu-security)"
+  "Official (security.ubuntu.com) [fallback]"
+)
+APT_SECURITY_URLS=(
+  "http://mirror.shatel.ir/ubuntu-security"
+  "http://security.ubuntu.com/ubuntu"
+)
+
+# pip mirrors (index-url)
+PIP_NAMES=(
+  "KubarCloud (pypi.kubarcloud.com)"
+  "ITO (archive.ito.gov.ir/python)"
+  "Runflare (mirror-pypi.runflare.com)"
+)
+PIP_INDEX_URLS=(
+  "https://pypi.kubarcloud.com/pypi"
+  "https://archive.ito.gov.ir/python/"
+  "https://mirror-pypi.runflare.com"
+)
+
+# npm registries
+NPM_NAMES=(
+  "KubarCloud (mirrors.kubarcloud.com/npm)"
+  "ITO (archive.ito.gov.ir/npm)"
+  "Runflare (mirror-npm.runflare.com)"
+)
+NPM_REGISTRY_URLS=(
+  "https://mirrors.kubarcloud.com/npm/"
+  "https://archive.ito.gov.ir/npm/"
+  "https://mirror-npm.runflare.com"
+)
+
+# yarn uses npmRegistryServer (Yarn v1/v3 differ; this works for common cases)
+YARN_NAMES=("${NPM_NAMES[@]}")
+YARN_REGISTRY_URLS=("${NPM_REGISTRY_URLS[@]}")
+
+# -----------------------------
+# Testing utilities
+# -----------------------------
+
+curl_time_ms() {
+  # args: url
+  local url="$1"
+  local out
+  out="$(curl -k -L -o /dev/null -sS --max-time 6 \
+      -w "%{time_connect} %{time_starttransfer} %{time_total}" "$url" 2>/dev/null || true)"
+  if [[ -z "$out" ]]; then
+    echo ""
+    return 0
+  fi
+  # convert seconds to ms (rounded)
+  # shellcheck disable=SC2206
+  local parts=($out)
+  local tc="${parts[0]:-0}"
+  local tt="${parts[2]:-0}"
+  # Use awk for portability
+  awk -v tc="$tc" -v tt="$tt" 'BEGIN{printf("%d %d\n", tc*1000, tt*1000)}'
+}
+
+rank_list() {
+  # Generic ranker: takes arrays of (names, test_urls), prints ranked table, outputs "index:totalms"
+  # args: count, names_ref, testurls_ref, test_mode_label
+  local count="$1"
+  local names_ref="$2"
+  local urls_ref="$3"
+  local label="$4"
+
+  # Indirect array access (bash 4+)
+  # shellcheck disable=SC1083
+  local -n names="$names_ref"
+  local -n urls="$urls_ref"
+
+  log "در حال تست و رتبه‌بندی: ${label}"
+  local tmp
+  tmp="$(mktemp)"
+
+  for i in $(seq 0 $((count-1))); do
+    local name="${names[$i]}"
+    local url="${urls[$i]}"
+
+    # Decide a lightweight test URL
+    local test_url="$url"
+    if [[ "$label" == "APT(main)" ]]; then
+      # APT main: test Release file
+      test_url="${url%/}/dists/${UBUNTU_CODENAME}/Release"
+    elif [[ "$label" == "APT(security)" ]]; then
+      test_url="${url%/}/dists/${UBUNTU_CODENAME}-security/Release"
+    elif [[ "$label" == "pip" ]]; then
+      # pip index: try simple endpoint
+      test_url="${url%/}/simple/"
+    elif [[ "$label" == "npm" || "$label" == "yarn" ]]; then
+      # npm registry ping
+      test_url="${url%/}/-/ping"
+    fi
+
+    local times
+    times="$(curl_time_ms "$test_url")"
+    if [[ -z "$times" ]]; then
+      echo "$i|999999|DOWN|$name|$url|$test_url" >>"$tmp"
+      continue
+    fi
+
+    local tc tt
+    tc="$(awk '{print $1}' <<<"$times")"
+    tt="$(awk '{print $2}' <<<"$times")"
+
+    # basic availability: if total time is 0 treat as down
+    if [[ "${tt:-0}" -le 0 ]]; then
+      echo "$i|999999|DOWN|$name|$url|$test_url" >>"$tmp"
+    else
+      echo "$i|$tt|OK|$name|$url|$test_url" >>"$tmp"
+    fi
+  done
+
+  # sort by total time
+  sort -t'|' -k2,2n "$tmp" > "${tmp}.sorted"
+
+  echo
+  echo "--------------------"
+  echo "نتیجه رتبه‌بندی: ${label}"
+  echo "شماره | وضعیت | total(ms) | نام | URL"
+  echo "--------------------"
+
+  local n=0
+  while IFS='|' read -r idx t status name url test_url; do
+    printf "%-5s | %-5s | %-9s | %-28s | %s\n" "$((n+1))" "$status" "$t" "$name" "$url"
+    # map displayed number (1-based rank) -> original index
+    echo "$((n+1))=$idx" >> "${tmp}.map"
+    n=$((n+1))
+  done < "${tmp}.sorted"
+
+  # print mapping file path for later parsing
+  echo "${tmp}.map"
+}
+
+parse_selection() {
+  # args: selection_str, map_file, max_keep(optional)
+  local sel="${1:-}"
+  local map_file="$2"
+  local max_keep="${3:-0}" # 0 means no limit
+
+  [[ -f "$map_file" ]] || die "map_file not found: $map_file"
+
+  # default: top 2 if empty
+  if [[ -z "${sel// /}" ]]; then
+    sel="1,2"
+  fi
+
+  # validate and convert rank numbers -> original indices
+  local chosen=()
+  IFS=',' read -ra parts <<<"$sel"
+  for p in "${parts[@]}"; do
+    p="${p// /}"
+    [[ -n "$p" ]] || continue
+    [[ "$p" =~ ^[0-9]+$ ]] || die "ورودی نامعتبر: $p (باید شماره باشد)"
+    local line
+    line="$(grep -E "^${p}=" "$map_file" || true)"
+    [[ -n "$line" ]] || die "شماره $p در لیست وجود ندارد."
+    local idx="${line#*=}"
+    chosen+=("$idx")
+  done
+
+  # de-dup while preserving order
+  local dedup=()
+  local seen="|"
+  for c in "${chosen[@]}"; do
+    if [[ "$seen" != *"|$c|"* ]]; then
+      dedup+=("$c")
+      seen+=" $c|"
+    fi
+  done
+
+  if [[ "$max_keep" -gt 0 ]] && [[ "${#dedup[@]}" -gt "$max_keep" ]]; then
+    dedup=("${dedup[@]:0:$max_keep}")
+  fi
+
+  printf "%s\n" "${dedup[@]}"
+}
+
+# -----------------------------
+# Apply configs
+# -----------------------------
+
+backup_file() {
+  local f="$1"
+  mkdir -p "$BACKUP_DIR"
+  if [[ -f "$f" ]]; then
+    local ts
+    ts="$(date +%Y%m%d-%H%M%S)"
+    cp -a "$f" "$BACKUP_DIR/$(basename "$f").$ts.bak"
+    log "Backup: $f -> $BACKUP_DIR/$(basename "$f").$ts.bak"
+  fi
+}
+
+write_state() {
+  mkdir -p "$(dirname "$STATE_FILE")"
+  cat >"$STATE_FILE" <<EOF
+# ${APP_NAME} state (generated)
+UBUNTU_CODENAME=${UBUNTU_CODENAME}
+APT_MAIN_SELECTED=${APT_MAIN_SELECTED:-}
+APT_SECURITY_SELECTED=${APT_SECURITY_SELECTED:-}
+PIP_SELECTED=${PIP_SELECTED:-}
+NPM_SELECTED=${NPM_SELECTED:-}
+YARN_SELECTED=${YARN_SELECTED:-}
+EOF
+  log "State saved: $STATE_FILE"
+}
+
+apply_apt_deb822() {
+  local -a main_urls=("$@")
+
+  # security list: always include official, plus Shatel security if selected
+  local -a sec_urls=()
+  if [[ -n "${APT_SECURITY_SELECTED_URLS:-}" ]]; then
+    # shellcheck disable=SC2206
+    sec_urls=(${APT_SECURITY_SELECTED_URLS})
+  fi
+
+  # Always keep official security as last resort
+  if [[ " ${sec_urls[*]} " != *"http://security.ubuntu.com/ubuntu"* ]]; then
+    sec_urls+=("http://security.ubuntu.com/ubuntu")
+  fi
+
+  local target="/etc/apt/sources.list.d/iran-mirrors.sources"
+  mkdir -p /etc/apt/sources.list.d
+
+  # backup potential files
+  backup_file "$target"
+  if [[ -f /etc/apt/sources.list ]]; then
+    backup_file /etc/apt/sources.list
+  fi
+  if [[ -f /etc/apt/sources.list.d/ubuntu.sources ]]; then
+    backup_file /etc/apt/sources.list.d/ubuntu.sources
+  fi
+
+  # If ubuntu.sources exists, we won't delete it, but we will "disable" it by renaming (safer than editing in-place)
+  if [[ -f /etc/apt/sources.list.d/ubuntu.sources ]]; then
+    local ts
+    ts="$(date +%Y%m%d-%H%M%S)"
+    run_cmd "mv /etc/apt/sources.list.d/ubuntu.sources /etc/apt/sources.list.d/ubuntu.sources.${ts}.disabled"
+    log "Disabled default ubuntu.sources (kept as backup)."
+  fi
+
+  # Also comment out classic sources.list entries for archive/security to avoid duplicates (best-effort)
+  if [[ -f /etc/apt/sources.list ]]; then
+    run_cmd "sed -i -E 's|^deb(\\-src)?\\s+http(s)?://(archive|security)\\.ubuntu\\.com/ubuntu|# &|g' /etc/apt/sources.list || true"
+  fi
+
+  local main_joined sec_joined
+  main_joined="$(printf "%s " "${main_urls[@]}" | sed 's/[[:space:]]*$//')"
+  sec_joined="$(printf "%s " "${sec_urls[@]}" | sed 's/[[:space:]]*$//')"
+
+  cat >"$target" <<EOF
+# Generated by ${APP_NAME} on $(date -u +'%F %T') UTC
+# Ubuntu codename: ${UBUNTU_CODENAME}
+
+Types: deb deb-src
+URIs: ${main_joined}
+Suites: ${UBUNTU_CODENAME} ${UBUNTU_CODENAME}-updates ${UBUNTU_CODENAME}-backports
+Components: main restricted universe multiverse
+Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+
+Types: deb deb-src
+URIs: ${sec_joined}
+Suites: ${UBUNTU_CODENAME}-security
+Components: main restricted universe multiverse
+Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+EOF
+
+  log "APT sources written: $target"
+  log "Running apt update ..."
+  run_cmd "apt-get update -y"
+}
+
+apply_pip() {
+  local index_url="$1"
+  local pip_conf="/etc/pip.conf"
+  backup_file "$pip_conf"
+
+  cat >"$pip_conf" <<EOF
+[global]
+index-url = ${index_url}
+timeout = 30
+disable-pip-version-check = true
+EOF
+
+  log "pip configured: $pip_conf"
+}
+
+apply_npm() {
+  local registry="$1"
+  if ! have npm; then
+    warn "npm نصب نیست. تنظیمات اعمال نشد. (بعداً اجرا کن: npm config set registry \"$registry\")"
+    return 0
+  fi
+  run_cmd "npm config set registry \"${registry}\" --global"
+  log "npm registry set: ${registry}"
+}
+
+apply_yarn() {
+  local registry="$1"
+  if have yarn; then
+    # Common setting for Yarn
+    run_cmd "yarn config set npmRegistryServer \"${registry}\" --global"
+    log "yarn npmRegistryServer set: ${registry}"
+  else
+    warn "yarn نصب نیست. تنظیمات اعمال نشد. (بعداً اجرا کن: yarn config set npmRegistryServer ${registry})"
+  fi
+}
+
+# -----------------------------
+# Main
+# -----------------------------
+usage() {
+  cat <<EOF
+Usage: sudo ./${0##*/} [--dry-run]
+EOF
+}
+
+main() {
+  if [[ "${1:-}" == "--dry-run" ]]; then
+    DRY_RUN=1
+    log "DRY-RUN enabled (هیچ تغییری اعمال نمی‌شود)."
+  elif [[ -n "${1:-}" ]]; then
+    usage
+    exit 1
+  fi
+
+  need_root
+  detect_ubuntu
+
+  # --- Rank APT main ---
+  apt_main_map="$(rank_list "${#APT_NAMES[@]}" APT_NAMES APT_MAIN_URLS "APT(main)")"
+  echo
+  read -r -p "APT(main): شماره‌های موردنظر را با کاما وارد کن (پیش‌فرض: 1,2) => " sel_apt_main
+  mapfile -t apt_main_idxs < <(parse_selection "${sel_apt_main:-}" "$apt_main_map" 4)
+
+  # Build selected URLs (keep best ones)
+  selected_apt_main_urls=()
+  selected_apt_main_names=()
+  for idx in "${apt_main_idxs[@]}"; do
+    selected_apt_main_urls+=("${APT_MAIN_URLS[$idx]}")
+    selected_apt_main_names+=("${APT_NAMES[$idx]}")
+  done
+  APT_MAIN_SELECTED="$(IFS=,; echo "${selected_apt_main_names[*]}")"
+
+  # --- Rank APT security ---
+  apt_sec_map="$(rank_list "${#APT_SECURITY_NAMES[@]}" APT_SECURITY_NAMES APT_SECURITY_URLS "APT(security)")"
+  echo
+  read -r -p "APT(security): شماره‌های موردنظر را با کاما وارد کن (پیش‌فرض: 1,2) => " sel_apt_sec
+  mapfile -t apt_sec_idxs < <(parse_selection "${sel_apt_sec:-}" "$apt_sec_map" 2)
+
+  selected_apt_sec_urls=()
+  selected_apt_sec_names=()
+  for idx in "${apt_sec_idxs[@]}"; do
+    selected_apt_sec_urls+=("${APT_SECURITY_URLS[$idx]}")
+    selected_apt_sec_names+=("${APT_SECURITY_NAMES[$idx]}")
+  done
+  APT_SECURITY_SELECTED="$(IFS=,; echo "${selected_apt_sec_names[*]}")"
+  APT_SECURITY_SELECTED_URLS="$(printf "%s " "${selected_apt_sec_urls[@]}" | sed 's/[[:space:]]*$//')"
+
+  # --- Rank pip mirrors ---
+  pip_map="$(rank_list "${#PIP_NAMES[@]}" PIP_NAMES PIP_INDEX_URLS "pip")"
+  echo
+  read -r -p "pip: شماره‌های موردنظر را با کاما وارد کن (پیش‌فرض: 1) => " sel_pip
+  mapfile -t pip_idxs < <(parse_selection "${sel_pip:-}" "$pip_map" 1)
+  pip_idx="${pip_idxs[0]}"
+  PIP_SELECTED="${PIP_NAMES[$pip_idx]}"
+  selected_pip_index="${PIP_INDEX_URLS[$pip_idx]}"
+
+  # --- Rank npm registries ---
+  npm_map="$(rank_list "${#NPM_NAMES[@]}" NPM_NAMES NPM_REGISTRY_URLS "npm")"
+  echo
+  read -r -p "npm: شماره‌های موردنظر را با کاما وارد کن (پیش‌فرض: 1) => " sel_npm
+  mapfile -t npm_idxs < <(parse_selection "${sel_npm:-}" "$npm_map" 1)
+  npm_idx="${npm_idxs[0]}"
+  NPM_SELECTED="${NPM_NAMES[$npm_idx]}"
+  selected_npm_registry="${NPM_REGISTRY_URLS[$npm_idx]}"
+
+  # --- Rank yarn registries (reuse npm list) ---
+  yarn_map="$(rank_list "${#YARN_NAMES[@]}" YARN_NAMES YARN_REGISTRY_URLS "yarn")"
+  echo
+  read -r -p "yarn: شماره‌های موردنظر را با کاما وارد کن (پیش‌فرض: 1) => " sel_yarn
+  mapfile -t yarn_idxs < <(parse_selection "${sel_yarn:-}" "$yarn_map" 1)
+  yarn_idx="${yarn_idxs[0]}"
+  YARN_SELECTED="${YARN_NAMES[$yarn_idx]}"
+  selected_yarn_registry="${YARN_REGISTRY_URLS[$yarn_idx]}"
+
+  echo
+  log "--------- خلاصه انتخاب‌ها ---------"
+  log "APT(main):   ${APT_MAIN_SELECTED} => ${selected_apt_main_urls[*]}"
+  log "APT(security): ${APT_SECURITY_SELECTED} => ${APT_SECURITY_SELECTED_URLS}"
+  log "pip:         ${PIP_SELECTED} => ${selected_pip_index}"
+  log "npm:         ${NPM_SELECTED} => ${selected_npm_registry}"
+  log "yarn:        ${YARN_SELECTED} => ${selected_yarn_registry}"
+  echo
+
+  read -r -p "اعمال تنظیمات؟ (y/N) => " confirm
+  if [[ "${confirm,,}" != "y" ]]; then
+    warn "لغو شد."
+    exit 0
+  fi
+
+  mkdir -p "$BACKUP_DIR"
+
+  apply_apt_deb822 "${selected_apt_main_urls[@]}"
+  apply_pip "$selected_pip_index"
+  apply_npm "$selected_npm_registry"
+  apply_yarn "$selected_yarn_registry"
+
+  write_state
+
+  log "تمام."
+}
+
+main "$@"

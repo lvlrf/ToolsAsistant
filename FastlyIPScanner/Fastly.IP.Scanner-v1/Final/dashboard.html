@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fastly CDN Scanner - Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 50px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 { font-size: 2.5em; margin-bottom: 10px; }
+        .header p { font-size: 1.1em; opacity: 0.9; }
+        .admin-badge {
+            background: #ffc107;
+            color: #000;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            margin-top: 10px;
+            display: none;
+        }
+        .admin-badge.active { display: inline-block; }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            padding: 30px;
+            background: #f8f9fa;
+        }
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+        .stat-label {
+            color: #666;
+            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .port-coverage {
+            padding: 15px 30px;
+            background: #e8f4fd;
+            border-bottom: 1px solid #bee3f8;
+        }
+        .port-coverage-title { font-weight: 600; margin-bottom: 10px; color: #2c5282; }
+        .port-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+        .port-tag {
+            background: white;
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 0.85em;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .port-tag strong { color: #667eea; }
+        .controls {
+            padding: 20px 30px;
+            background: white;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .control-group label { font-weight: 600; color: #333; }
+        .control-group select,
+        .control-group input[type="text"] {
+            padding: 8px 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 5px;
+            font-size: 1em;
+        }
+        .control-group input[type="text"] { width: 180px; }
+        .control-group input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.95em;
+            transition: all 0.3s;
+        }
+        .btn-primary { background: #667eea; color: white; }
+        .btn-primary:hover { background: #5568d3; }
+        .btn-success { background: #10b981; color: white; }
+        .btn-success:hover { background: #059669; }
+        .btn-warning { background: #f59e0b; color: white; }
+        .btn-warning:hover { background: #d97706; }
+        .btn-secondary { background: #6b7280; color: white; }
+        .btn-secondary:hover { background: #4b5563; }
+        .results-container { padding: 20px 30px; }
+        .results-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        .results-table th {
+            background: #1e293b;
+            color: white;
+            padding: 12px 15px;
+            text-align: left;
+            font-weight: 600;
+        }
+        .results-table td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #e2e8f0;
+            vertical-align: middle;
+        }
+        .results-table tr:hover { background: #f8fafc; }
+        .results-table tr.non-fastly { background: #fef3c7; }
+        .results-table tr.non-fastly:hover { background: #fde68a; }
+        .ip-cell {
+            font-family: 'Courier New', monospace;
+            font-weight: 600;
+            color: #1e40af;
+            cursor: pointer;
+            user-select: none;
+        }
+        .ip-cell:hover {
+            color: #667eea;
+            background: #f0f9ff;
+            border-radius: 4px;
+        }
+        .port-badges { display: flex; flex-wrap: wrap; gap: 5px; }
+        .port-badge {
+            background: #e0e7ff;
+            color: #3730a3;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+        .port-badge.https { background: #d1fae5; color: #065f46; }
+        .port-badge.http { background: #fef3c7; color: #92400e; }
+        .scanner-cell { color: #374151; }
+        .scanner-count {
+            font-weight: 600;
+            color: #667eea;
+            margin-right: 8px;
+        }
+        .scanner-ips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-top: 5px;
+        }
+        .scanner-ip {
+            background: #dbeafe;
+            color: #1e40af;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-family: monospace;
+            cursor: pointer;
+            user-select: none;
+        }
+        .scanner-ip:hover { background: #93c5fd; }
+        .fastly-badge {
+            font-size: 0.75em;
+            padding: 2px 8px;
+            border-radius: 10px;
+            margin-left: 8px;
+        }
+        .fastly-badge.yes { background: #d1fae5; color: #065f46; }
+        .fastly-badge.no { background: #fee2e2; color: #991b1b; }
+        .no-results, .loading, .error {
+            text-align: center;
+            padding: 50px;
+            font-size: 1.2em;
+        }
+        .no-results { color: #999; }
+        .loading { color: #667eea; }
+        .error { background: #fee2e2; color: #991b1b; margin: 20px; border-radius: 8px; }
+        .footer {
+            background: #f8f9fa;
+            padding: 20px;
+            text-align: center;
+            border-top: 1px solid #e0e0e0;
+            color: #666;
+        }
+        .footer a { color: #667eea; text-decoration: none; font-weight: 600; }
+        .footer a:hover { text-decoration: underline; }
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #1e293b;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.3s;
+            z-index: 1000;
+        }
+        .toast.show { opacity: 1; transform: translateY(0); }
+        .results-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            color: #666;
+        }
+        .results-count { font-weight: 600; }
+        @media (max-width: 768px) {
+            .header h1 { font-size: 1.8em; }
+            .stats-grid { grid-template-columns: 1fr 1fr; }
+            .controls { flex-direction: column; align-items: stretch; }
+            .control-group { justify-content: space-between; }
+            .results-table { font-size: 0.9em; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 Fastly CDN Scanner</h1>
+            <p>Working IPs Dashboard - Helping Iranians Access the Internet</p>
+            <span class="admin-badge" id="adminBadge">🔐 Admin Mode</span>
+        </div>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value" id="workingIPs">0</div>
+                <div class="stat-label">Working IPs</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="totalScans">0</div>
+                <div class="stat-label">Total Scans</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="totalScanners">0</div>
+                <div class="stat-label">Unique Scanners</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="lastUpdated">-</div>
+                <div class="stat-label">Last Updated</div>
+            </div>
+        </div>
+        <div class="port-coverage">
+            <div class="port-coverage-title">📊 Port Coverage</div>
+            <div class="port-tags" id="portCoverage">Loading...</div>
+        </div>
+        <div class="controls">
+            <div class="control-group">
+                <label>🔍</label>
+                <input type="text" id="searchIP" placeholder="Search IP...">
+            </div>
+            <div class="control-group">
+                <label for="portFilter">Port:</label>
+                <select id="portFilter">
+                    <option value="all">All Ports</option>
+                    <optgroup label="HTTPS">
+                        <option value="443">443</option>
+                        <option value="8443">8443</option>
+                        <option value="2053">2053</option>
+                        <option value="2083">2083</option>
+                        <option value="2087">2087</option>
+                        <option value="2096">2096</option>
+                    </optgroup>
+                    <optgroup label="HTTP">
+                        <option value="80">80</option>
+                        <option value="8080">8080</option>
+                        <option value="8880">8880</option>
+                        <option value="2052">2052</option>
+                        <option value="2082">2082</option>
+                        <option value="2086">2086</option>
+                        <option value="2095">2095</option>
+                    </optgroup>
+                </select>
+            </div>
+            <div class="control-group">
+                <label for="sortBy">Sort:</label>
+                <select id="sortBy">
+                    <option value="most_success">Most Successful</option>
+                    <option value="least_success">Least Successful</option>
+                    <option value="recent">Recently Tested</option>
+                    <option value="oldest">Oldest Tested</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <input type="checkbox" id="onlyNonFastly">
+                <label for="onlyNonFastly">Only non-Fastly IPs</label>
+            </div>
+            <div class="control-group">
+                <button class="btn btn-primary" id="btnRefresh">🔄 Refresh</button>
+            </div>
+            <div class="control-group" id="adminControl" style="display: none;">
+                <button class="btn btn-warning" id="btnAggregate">⚡ Update Stats</button>
+            </div>
+        </div>
+        <div class="controls" style="border-top: 1px dashed #e0e0e0;">
+            <div class="control-group">
+                <button class="btn btn-success" id="btnDownloadFiltered">📥 Download Filtered</button>
+                <button class="btn btn-secondary" id="btnDownloadAll">📥 Download All</button>
+            </div>
+        </div>
+        <div class="results-container">
+            <div class="results-info">
+                <span class="results-count" id="resultsCount">0 results</span>
+            </div>
+            <div id="resultsContainer">
+                <div class="loading">Loading data...</div>
+            </div>
+        </div>
+        <div class="footer">
+            <p>Developed by <strong>DrConnect</strong></p>
+            <p>Join our channel: <a href="https://t.me/drconnect" target="_blank">@drconnect</a></p>
+            <p style="margin-top: 10px; font-size: 0.9em;">Open-source project helping Iranians access the internet</p>
+        </div>
+    </div>
+    <div class="toast" id="toast"></div>
+    <script>
+        var allResults = [];
+        var filteredResults = [];
+        var isAdmin = false;
+        var ADMIN_KEY = 'DrConnect2025Admin';
+        var HTTPS_PORTS = [443, 8443, 2053, 2083, 2087, 2096];
+
+        function showToast(msg) {
+            var t = document.getElementById('toast');
+            t.textContent = msg;
+            t.classList.add('show');
+            setTimeout(function() { t.classList.remove('show'); }, 2000);
+        }
+
+        function doCopy(text) {
+            var ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.cssText = 'position:fixed;left:-9999px;top:0;';
+            document.body.appendChild(ta);
+            ta.focus();
+            ta.select();
+            try {
+                document.execCommand('copy');
+                showToast('📋 Copied: ' + text);
+            } catch(e) {
+                showToast('❌ Copy failed');
+            }
+            document.body.removeChild(ta);
+        }
+
+        function checkAdminMode() {
+            var p = new URLSearchParams(window.location.search);
+            if (p.get('key') === ADMIN_KEY) {
+                isAdmin = true;
+                document.getElementById('adminBadge').classList.add('active');
+                document.getElementById('adminControl').style.display = 'flex';
+            }
+        }
+
+        function getPorts(item) {
+            if (item.port_numbers && Array.isArray(item.port_numbers)) return item.port_numbers;
+            if (item.ports && Array.isArray(item.ports)) {
+                if (item.ports.length > 0 && typeof item.ports[0] === 'object') {
+                    return item.ports.map(function(p) { return p.port; });
+                }
+                return item.ports;
+            }
+            return [];
+        }
+
+        function getScanners(item) {
+            return (item.scanners && Array.isArray(item.scanners)) ? item.scanners : [];
+        }
+
+        function loadData() {
+            var endpoint = isAdmin ? 'aggregated/admin_results.json' : 'aggregated/results.json';
+            fetch(endpoint + '?t=' + Date.now())
+                .then(function(r) { if (!r.ok) throw new Error('Fail'); return r.json(); })
+                .then(function(data) {
+                    allResults = data.results || [];
+                    updateStats(data.metadata);
+                    updatePortCoverage(data.metadata ? data.metadata.port_coverage : null);
+                    filterAndDisplay();
+                })
+                .catch(function(e) {
+                    document.getElementById('resultsContainer').innerHTML = '<div class="error">⚠️ Failed to load data.</div>';
+                });
+        }
+
+        function updateStats(m) {
+            if (!m) return;
+            document.getElementById('workingIPs').textContent = (m.working_ips || 0).toLocaleString();
+            document.getElementById('totalScans').textContent = (m.total_scans || 0).toLocaleString();
+            document.getElementById('totalScanners').textContent = (m.total_scanners || 0).toLocaleString();
+            if (m.generated) document.getElementById('lastUpdated').textContent = getTimeAgo(new Date(m.generated));
+        }
+
+        function updatePortCoverage(cov) {
+            var c = document.getElementById('portCoverage');
+            if (!cov || Object.keys(cov).length === 0) { c.innerHTML = '<span style="color:#999">No data</span>'; return; }
+            var arr = Object.entries(cov).sort(function(a,b) { return b[1].percentage - a[1].percentage; });
+            var h = '';
+            arr.forEach(function(e) { h += '<span class="port-tag"><strong>' + e[0] + '</strong>: ' + e[1].percentage + '% (' + (e[1].unique_ips||0) + ')</span>'; });
+            c.innerHTML = h;
+        }
+
+        function filterAndDisplay() {
+            var search = document.getElementById('searchIP').value.toLowerCase();
+            var pf = document.getElementById('portFilter').value;
+            var sb = document.getElementById('sortBy').value;
+            var onf = document.getElementById('onlyNonFastly').checked;
+
+            filteredResults = allResults.filter(function(item) {
+                if (onf && item.is_fastly) return false;
+                var ip = String(item.ip || '');
+                if (search && ip.indexOf(search) === -1) return false;
+                if (pf !== 'all') {
+                    var port = parseInt(pf);
+                    if (getPorts(item).indexOf(port) === -1) return false;
+                }
+                return true;
+            });
+
+            filteredResults.sort(function(a, b) {
+                if (sb === 'most_success') return (b.total_success||0) - (a.total_success||0);
+                if (sb === 'least_success') return (a.total_success||0) - (b.total_success||0);
+                if (sb === 'recent') return new Date(b.last_seen||0) - new Date(a.last_seen||0);
+                if (sb === 'oldest') return new Date(a.last_seen||0) - new Date(b.last_seen||0);
+                return 0;
+            });
+
+            displayResults(filteredResults);
+        }
+
+        function displayResults(results) {
+            var c = document.getElementById('resultsContainer');
+            document.getElementById('resultsCount').textContent = results.length + ' results';
+            if (!results || results.length === 0) { c.innerHTML = '<div class="no-results">📭 No results</div>'; return; }
+
+            var h = '<table class="results-table"><thead><tr><th>IP Address</th><th>Working Ports</th><th>Scanners</th><th>Success</th><th>Last Seen</th></tr></thead><tbody>';
+
+            results.forEach(function(item) {
+                var ip = String(item.ip || '');
+                var rc = item.is_fastly ? '' : 'non-fastly';
+                var fb = item.is_fastly ? '<span class="fastly-badge yes">Fastly</span>' : '<span class="fastly-badge no">Other</span>';
+
+                var ports = getPorts(item);
+                var ph = '<div class="port-badges">';
+                ports.forEach(function(p) {
+                    var pc = HTTPS_PORTS.indexOf(p) !== -1 ? 'https' : 'http';
+                    ph += '<span class="port-badge ' + pc + '">' + p + '</span>';
+                });
+                ph += '</div>';
+
+                var scanners = getScanners(item);
+                var sc = item.scanner_count || scanners.length || 0;
+                var sh = '<div class="scanner-cell"><span class="scanner-count">👥 ' + sc + '</span>';
+                if (isAdmin && scanners.length > 0) {
+                    sh += '<div class="scanner-ips">';
+                    scanners.forEach(function(sip) {
+                        sh += '<span class="scanner-ip" data-ip="' + sip + '">' + sip + '</span>';
+                    });
+                    sh += '</div>';
+                }
+                sh += '</div>';
+
+                h += '<tr class="' + rc + '">';
+                h += '<td><span class="ip-cell" data-ip="' + ip + '">' + ip + '</span>' + fb + '</td>';
+                h += '<td>' + ph + '</td>';
+                h += '<td>' + sh + '</td>';
+                h += '<td><strong style="color:#10b981">' + (item.total_success||0) + '</strong></td>';
+                h += '<td>' + getTimeAgo(new Date(item.last_seen)) + '</td>';
+                h += '</tr>';
+            });
+
+            h += '</tbody></table>';
+            c.innerHTML = h;
+        }
+
+        function getTimeAgo(d) {
+            if (!d || isNaN(d.getTime())) return 'Unknown';
+            var s = Math.floor((new Date() - d) / 1000);
+            if (s < 60) return 'Just now';
+            var iv = [['year',31536000],['month',2592000],['week',604800],['day',86400],['hour',3600],['minute',60]];
+            for (var i = 0; i < iv.length; i++) {
+                var n = Math.floor(s / iv[i][1]);
+                if (n >= 1) return n + ' ' + iv[i][0] + (n > 1 ? 's' : '') + ' ago';
+            }
+            return 'Just now';
+        }
+
+        function downloadCSV(all) {
+            var data = all ? allResults : filteredResults;
+            if (data.length === 0) { showToast('No data'); return; }
+            var csv = 'IP,Ports,Scanner_Count,Total_Success,Last_Seen,Is_Fastly' + (isAdmin ? ',Scanner_IPs' : '') + '\n';
+            data.forEach(function(item) {
+                var row = [
+                    String(item.ip||''),
+                    '"' + getPorts(item).join(';') + '"',
+                    item.scanner_count || getScanners(item).length || 0,
+                    item.total_success || 0,
+                    item.last_seen || '',
+                    item.is_fastly ? 'Yes' : 'No'
+                ];
+                if (isAdmin) row.push('"' + getScanners(item).join(';') + '"');
+                csv += row.join(',') + '\n';
+            });
+            var b = new Blob([csv], {type:'text/csv'});
+            var a = document.createElement('a');
+            a.href = URL.createObjectURL(b);
+            a.download = 'fastly_' + (all ? 'all' : 'filtered') + '_' + new Date().toISOString().split('T')[0] + '.csv';
+            a.click();
+            showToast('📥 Downloaded ' + data.length);
+        }
+
+        function triggerAggregation() {
+            if (!isAdmin) return;
+            fetch('/api/aggregate', {method:'POST'})
+                .then(function(r) { if (r.ok) { showToast('✅ Done!'); setTimeout(loadData, 2000); } else showToast('⚠️ Failed'); })
+                .catch(function() { showToast('⚠️ Error'); });
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            checkAdminMode();
+            loadData();
+
+            document.getElementById('searchIP').addEventListener('input', filterAndDisplay);
+            document.getElementById('portFilter').addEventListener('change', filterAndDisplay);
+            document.getElementById('sortBy').addEventListener('change', filterAndDisplay);
+            document.getElementById('onlyNonFastly').addEventListener('change', filterAndDisplay);
+            document.getElementById('btnRefresh').addEventListener('click', loadData);
+            document.getElementById('btnDownloadFiltered').addEventListener('click', function() { downloadCSV(false); });
+            document.getElementById('btnDownloadAll').addEventListener('click', function() { downloadCSV(true); });
+            document.getElementById('btnAggregate').addEventListener('click', triggerAggregation);
+
+            document.getElementById('resultsContainer').addEventListener('click', function(e) {
+                var t = e.target;
+                if (t.hasAttribute('data-ip')) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    doCopy(t.getAttribute('data-ip'));
+                }
+            });
+
+            setInterval(loadData, 300000);
+        });
+    </script>
+</body>
+</html>

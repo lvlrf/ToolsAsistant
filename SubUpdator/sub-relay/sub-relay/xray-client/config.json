@@ -1,0 +1,93 @@
+{
+  "log": {
+    "loglevel": "warning",
+    "access": "/var/log/xray/access.log",
+    "error": "/var/log/xray/error.log"
+  },
+  "inbounds": [
+    {
+      "tag": "socks-in",
+      "port": ${XRAY_SOCKS_PORT},
+      "listen": "127.0.0.1",
+      "protocol": "socks",
+      "settings": {
+        "auth": "noauth",
+        "udp": true
+      }
+    },
+    {
+      "tag": "http-in",
+      "port": 1081,
+      "listen": "127.0.0.1",
+      "protocol": "http",
+      "settings": {}
+    },
+    {
+      "tag": "dokodemo-in",
+      "port": ${NGINX_INTERNAL_PORT},
+      "listen": "127.0.0.1",
+      "protocol": "dokodemo-door",
+      "settings": {
+        "address": "${PANEL_URL_HOST}",
+        "port": 443,
+        "network": "tcp"
+      }
+    }
+  ],
+  "outbounds": [
+    {
+      "tag": "proxy",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "${XRAY_SERVER_ADDRESS}",
+            "port": ${XRAY_SERVER_PORT},
+            "users": [
+              {
+                "id": "${XRAY_UUID}",
+                "encryption": "none",
+                "flow": ""
+              }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "ws",
+        "security": "tls",
+        "tlsSettings": {
+          "serverName": "${XRAY_SNI}",
+          "allowInsecure": false,
+          "fingerprint": "chrome"
+        },
+        "wsSettings": {
+          "path": "${XRAY_WS_PATH}",
+          "headers": {
+            "Host": "${XRAY_SNI}"
+          }
+        }
+      }
+    },
+    {
+      "tag": "direct",
+      "protocol": "freedom",
+      "settings": {}
+    },
+    {
+      "tag": "block",
+      "protocol": "blackhole",
+      "settings": {}
+    }
+  ],
+  "routing": {
+    "domainStrategy": "AsIs",
+    "rules": [
+      {
+        "type": "field",
+        "inboundTag": ["socks-in", "http-in", "dokodemo-in"],
+        "outboundTag": "proxy"
+      }
+    ]
+  }
+}

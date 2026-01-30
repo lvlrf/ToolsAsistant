@@ -1,0 +1,136 @@
+# slipstream Server Systemd Service
+# نصب در: /etc/systemd/system/slipstream-server.service
+# سرور: خارج از ایران
+#
+# دستورات مدیریت:
+#   systemctl start slipstream-server
+#   systemctl stop slipstream-server
+#   systemctl restart slipstream-server
+#   systemctl status slipstream-server
+#   systemctl enable slipstream-server   # برای auto-start
+#   journalctl -u slipstream-server -f   # برای دیدن logs
+
+[Unit]
+Description=Slipstream DNS Tunnel Server
+Documentation=https://endpositive.github.io/slipstream/
+After=network-online.target
+Wants=network-online.target
+
+# اگر firewall داری، این service رو قبل از slipstream اجرا کن
+#After=firewalld.service
+#After=ufw.service
+
+[Service]
+Type=simple
+
+# User و Group
+# برای امنیت بیشتر، با یک user غیر root اجرا کن
+# ولی برای bind کردن به port 53 نیاز به CAP_NET_BIND_SERVICE داری
+User=root
+Group=root
+
+# اگر میخوای با user غیر root اجرا کنی:
+#User=slipstream
+#Group=slipstream
+#AmbientCapabilities=CAP_NET_BIND_SERVICE CAP_NET_ADMIN
+
+# Working Directory
+WorkingDirectory=/etc/slipstream
+
+# دستور اجرای slipstream server
+# مسیر binary رو براساس نصب خودت تنظیم کن
+ExecStart=/usr/local/bin/slipstream server \
+    --config /etc/slipstream/server.conf \
+    --log-level info
+
+# Pre-start checks
+ExecStartPre=/usr/bin/test -f /etc/slipstream/server.conf
+ExecStartPre=/bin/sh -c 'echo "Starting slipstream server..." | systemd-cat'
+
+# Post-start verification
+ExecStartPost=/bin/sleep 2
+ExecStartPost=/bin/sh -c 'systemctl is-active slipstream-server && echo "slipstream server started successfully" | systemd-cat'
+
+# Restart policy
+Restart=always
+RestartSec=10s
+
+# Timeout settings
+TimeoutStartSec=30s
+TimeoutStopSec=30s
+
+# Kill settings
+KillMode=mixed
+KillSignal=SIGTERM
+
+# Resource limits
+# تنظیم براساس منابع سرور
+LimitNOFILE=1048576
+LimitNPROC=512
+
+# Security hardening (optional - برای امنیت بیشتر uncomment کن)
+#NoNewPrivileges=true
+#PrivateTmp=true
+#ProtectSystem=strict
+#ProtectHome=true
+#ReadWritePaths=/var/log
+#ProtectKernelTunables=true
+#ProtectControlGroups=true
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=slipstream-server
+
+[Install]
+WantedBy=multi-user.target
+
+# ===========================================
+# راهنمای نصب و استفاده
+# ===========================================
+#
+# 1. کپی این فایل به systemd:
+#    cp slipstream-server.service /etc/systemd/system/
+#
+# 2. Reload systemd:
+#    systemctl daemon-reload
+#
+# 3. Enable برای auto-start:
+#    systemctl enable slipstream-server
+#
+# 4. شروع service:
+#    systemctl start slipstream-server
+#
+# 5. بررسی status:
+#    systemctl status slipstream-server
+#
+# 6. دیدن logs:
+#    journalctl -u slipstream-server -f
+#    journalctl -u slipstream-server --since "1 hour ago"
+#
+# ===========================================
+# Troubleshooting
+# ===========================================
+#
+# اگر service start نمیشه:
+#
+# 1. چک کن binary وجود داره:
+#    ls -la /usr/local/bin/slipstream
+#
+# 2. چک کن config صحیح است:
+#    slipstream server --config /etc/slipstream/server.conf --check
+#
+# 3. چک کن پورت ۵۳ آزاد است:
+#    netstat -tulpn | grep :53
+#    lsof -i :53
+#
+# 4. چک کن permissions درست است:
+#    ls -la /etc/slipstream/server.conf
+#
+# 5. اجرای manual برای دیدن error:
+#    /usr/local/bin/slipstream server --config /etc/slipstream/server.conf
+#
+# 6. چک کردن SELinux/AppArmor:
+#    getenforce  # اگر enforcing بود ممکنه مشکل ایجاد کنه
+#
+# ===========================================

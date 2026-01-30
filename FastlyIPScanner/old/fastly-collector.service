@@ -1,0 +1,25 @@
+[Unit]
+Description=Fastly CDN Scanner Collection API
+After=network.target
+
+[Service]
+Type=exec
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/fastly-collector
+Environment="PATH=/usr/local/bin:/usr/bin:/bin"
+ExecStart=/usr/bin/gunicorn --workers 4 --bind 0.0.0.0:8080 --timeout 120 api:app
+Restart=always
+RestartSec=10
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=fastly-collector
+
+[Install]
+WantedBy=multi-user.target
