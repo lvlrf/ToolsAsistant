@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Xray Config Analyzer</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Vazirmatn:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0c10;
+    --surface: #111318;
+    --surface2: #181c24;
+    --border: #1e2330;
+    --border-bright: #2a3148;
+    --accent: #00d4aa;
+    --accent2: #0088ff;
+    --accent3: #ff6b35;
+    --purple: #9664ff;
+    --text: #c8d0e0;
+    --text-dim: #5a6580;
+    --text-bright: #eef2ff;
+    --danger: #ff4757;
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'Vazirmatn', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+  }
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,212,170,0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,170,0.025) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .container { position: relative; z-index: 1; max-width: 1300px; margin: 0 auto; padding: 24px 20px; }
+
+  /* Header */
+  header {
+    display: flex; align-items: center; gap: 16px;
+    margin-bottom: 28px; padding-bottom: 18px;
+    border-bottom: 1px solid var(--border);
+  }
+  .logo {
+    width: 42px; height: 42px;
+    background: linear-gradient(135deg, var(--accent2), var(--purple));
+    border-radius: 10px; display: flex; align-items: center;
+    justify-content: center; font-size: 20px; flex-shrink: 0;
+  }
+  header h1 { font-size: 19px; font-weight: 600; color: var(--text-bright); }
+  header p { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+  .badge {
+    margin-right: auto; padding: 4px 10px;
+    background: rgba(0,136,255,0.08); border: 1px solid rgba(0,136,255,0.2);
+    border-radius: 20px; font-size: 11px; color: var(--accent2); font-family: var(--mono);
+  }
+
+  /* Input area */
+  .input-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; overflow: hidden; margin-bottom: 20px;
+  }
+  .input-header {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 18px; background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+  }
+  .input-icon {
+    width: 26px; height: 26px; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center; font-size: 13px;
+    background: rgba(0,212,170,0.1); color: var(--accent);
+  }
+  .input-title { font-size: 13px; font-weight: 600; color: var(--text-bright); }
+  .input-body { padding: 14px 18px; display: flex; gap: 14px; align-items: flex-end; }
+  textarea {
+    flex: 1; background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text); font-family: var(--mono);
+    font-size: 12px; padding: 12px; resize: vertical; outline: none;
+    transition: border-color 0.2s; line-height: 1.7;
+  }
+  textarea:focus { border-color: var(--accent); }
+  textarea::placeholder { color: var(--text-dim); }
+
+  .analyze-btn {
+    padding: 12px 22px;
+    background: linear-gradient(135deg, var(--accent2), #0066cc);
+    border: none; border-radius: 9px; color: #fff;
+    font-family: var(--sans); font-size: 14px; font-weight: 600;
+    cursor: pointer; transition: all 0.2s; white-space: nowrap;
+    display: flex; align-items: center; gap: 7px;
+  }
+  .analyze-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 25px rgba(0,136,255,0.3); }
+  .analyze-btn:active { transform: translateY(0); }
+
+  /* Alert */
+  .alert {
+    padding: 10px 14px; border-radius: 8px; font-size: 12px;
+    margin-bottom: 14px; display: none;
+  }
+  .alert.error { background: rgba(255,71,87,0.1); border: 1px solid rgba(255,71,87,0.2); color: var(--danger); display: block; }
+  .alert.info  { background: rgba(0,212,170,0.05); border: 1px solid rgba(0,212,170,0.15); color: var(--accent); display: block; }
+
+  /* Tabs */
+  .tabs-wrapper {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; overflow: hidden;
+  }
+  .tabs-nav {
+    display: flex; background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+  }
+  .tab-btn {
+    padding: 12px 20px; font-family: var(--sans); font-size: 13px;
+    color: var(--text-dim); background: none; border: none;
+    border-bottom: 2px solid transparent; cursor: pointer;
+    transition: all 0.15s; display: flex; align-items: center; gap: 6px;
+  }
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active { color: var(--accent2); border-bottom-color: var(--accent2); }
+  .tab-count {
+    background: rgba(0,136,255,0.15); color: var(--accent2);
+    padding: 1px 6px; border-radius: 10px; font-size: 10px;
+    font-family: var(--mono);
+  }
+
+  .tab-pane { display: none; }
+  .tab-pane.active { display: block; }
+
+  /* Filter bar */
+  .filter-bar {
+    display: flex; gap: 10px; padding: 12px 18px;
+    background: var(--surface2); border-bottom: 1px solid var(--border);
+    flex-wrap: wrap; align-items: center;
+  }
+  .filter-input {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 6px; color: var(--text); font-family: var(--mono);
+    font-size: 12px; padding: 6px 10px; outline: none;
+    transition: border-color 0.2s; width: 200px;
+  }
+  .filter-input:focus { border-color: var(--accent2); }
+  .filter-input::placeholder { color: var(--text-dim); }
+
+  .filter-select {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 6px; color: var(--text); font-family: var(--mono);
+    font-size: 12px; padding: 6px 10px; outline: none; cursor: pointer;
+  }
+  .filter-select:focus { border-color: var(--accent2); }
+
+  .filter-label { font-size: 11px; color: var(--text-dim); }
+
+  /* Table */
+  .table-wrap { overflow-x: auto; }
+  table {
+    width: 100%; border-collapse: collapse; font-size: 12px;
+  }
+  thead th {
+    background: #13161e; padding: 10px 14px;
+    text-align: right; font-weight: 600; color: var(--text-dim);
+    border-bottom: 1px solid var(--border); white-space: nowrap;
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;
+    cursor: pointer; user-select: none;
+  }
+  thead th:hover { color: var(--text); }
+  thead th .sort-icon { margin-right: 4px; opacity: 0.4; font-size: 10px; }
+  thead th.sorted .sort-icon { opacity: 1; color: var(--accent2); }
+
+  tbody tr {
+    border-bottom: 1px solid rgba(30,35,48,0.6);
+    transition: background 0.1s;
+  }
+  tbody tr:hover { background: rgba(255,255,255,0.02); }
+  tbody tr:last-child { border-bottom: none; }
+  tbody td {
+    padding: 10px 14px; vertical-align: top;
+    font-family: var(--mono); font-size: 11px; color: var(--text);
+  }
+
+  /* Tags */
+  .tag {
+    display: inline-block; padding: 2px 7px; border-radius: 4px;
+    font-size: 10px; font-family: var(--mono); margin: 2px 2px 2px 0;
+    white-space: nowrap;
+  }
+  .tag.tls      { background: rgba(0,212,170,0.1);   color: var(--accent);  border: 1px solid rgba(0,212,170,0.2); }
+  .tag.none     { background: rgba(90,101,128,0.1);  color: var(--text-dim); border: 1px solid rgba(90,101,128,0.2); }
+  .tag.port     { background: rgba(0,136,255,0.1);   color: var(--accent2); border: 1px solid rgba(0,136,255,0.2); }
+  .tag.proto    { background: rgba(150,100,255,0.1); color: var(--purple);  border: 1px solid rgba(150,100,255,0.2); }
+  .tag.alpn     { background: rgba(255,107,53,0.1);  color: var(--accent3); border: 1px solid rgba(255,107,53,0.2); }
+  .tag.fp       { background: rgba(255,200,0,0.08);  color: #ffc800;        border: 1px solid rgba(255,200,0,0.15); }
+  .tag.ip-type  { background: rgba(0,212,170,0.08);  color: var(--accent);  border: 1px solid rgba(0,212,170,0.15); }
+  .tag.dom-type { background: rgba(0,136,255,0.08);  color: var(--accent2); border: 1px solid rgba(0,136,255,0.15); }
+  .tag.count    { background: rgba(255,255,255,0.04); color: var(--text-dim); border: 1px solid var(--border); }
+
+  .address-cell { font-weight: 600; color: var(--text-bright); }
+
+  /* Stats bar */
+  .stats-bar {
+    display: flex; gap: 20px; padding: 10px 18px;
+    border-bottom: 1px solid var(--border); flex-wrap: wrap;
+  }
+  .stat { display: flex; align-items: center; gap: 6px; font-size: 11px; }
+  .stat-num { font-family: var(--mono); font-weight: 600; color: var(--accent2); }
+  .stat-label { color: var(--text-dim); }
+
+  /* Export bar */
+  .export-bar {
+    display: flex; gap: 8px; padding: 12px 18px;
+    border-top: 1px solid var(--border); background: var(--surface2);
+  }
+  .export-btn {
+    padding: 7px 14px; border-radius: 7px; border: 1px solid var(--border-bright);
+    background: transparent; color: var(--text); font-family: var(--sans);
+    font-size: 12px; cursor: pointer; transition: all 0.15s;
+    display: flex; align-items: center; gap: 5px;
+  }
+  .export-btn:hover { background: var(--border); color: var(--text-bright); }
+  .export-btn.primary {
+    background: rgba(0,212,170,0.1); border-color: rgba(0,212,170,0.3); color: var(--accent);
+  }
+  .export-btn.primary:hover { background: rgba(0,212,170,0.18); }
+
+  /* DNS tab */
+  .dns-input-row {
+    display: flex; gap: 10px; align-items: center;
+    padding: 14px 18px; border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+  }
+  .dns-info {
+    font-size: 11px; color: var(--text-dim);
+    padding: 8px 18px; border-bottom: 1px solid var(--border);
+    background: rgba(0,136,255,0.03);
+  }
+
+  .resolve-btn {
+    padding: 8px 16px; background: linear-gradient(135deg, var(--purple), #7040ee);
+    border: none; border-radius: 7px; color: #fff; font-family: var(--sans);
+    font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .resolve-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(150,100,255,0.3); }
+
+  /* Empty state */
+  .empty-state {
+    text-align: center; padding: 60px 20px; color: var(--text-dim);
+  }
+  .empty-state .icon { font-size: 40px; margin-bottom: 14px; opacity: 0.5; }
+  .empty-state p { font-size: 13px; }
+
+  /* Spinner */
+  .spinner {
+    width: 16px; height: 16px;
+    border: 2px solid rgba(150,100,255,0.2);
+    border-top-color: var(--purple);
+    border-radius: 50%; animation: spin 0.7s linear infinite;
+    display: none;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* No results */
+  .no-results {
+    text-align: center; padding: 30px; color: var(--text-dim); font-size: 12px;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="logo">🔍</div>
+    <div>
+      <h1>Xray Config Analyzer</h1>
+      <p>آنالیز و گروه‌بندی کانفیگ‌ها بر اساس IP / دامنه</p>
+    </div>
+    <div class="badge">ANALYZER</div>
+  </header>
+
+  <div id="alertBox" class="alert"></div>
+
+  <!-- Input -->
+  <div class="input-card">
+    <div class="input-header">
+      <div class="input-icon">📋</div>
+      <span class="input-title">کانفیگ‌های ورودی</span>
+    </div>
+    <div class="input-body">
+      <textarea id="inputConfigs" rows="6"
+        placeholder="vless://uuid@host:port?...#name&#10;vmess://base64...&#10;trojan://pass@host:port?...#name&#10;&#10;هر خط یک کانفیگ"></textarea>
+      <button class="analyze-btn" onclick="analyze()">🔍 آنالیز کانفیگ‌ها</button>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs-wrapper">
+    <div class="tabs-nav">
+      <button class="tab-btn active" onclick="switchTab('analysis', this)">
+        📊 آنالیز کانفیگ
+        <span class="tab-count" id="countAnalysis">0</span>
+      </button>
+      <button class="tab-btn" onclick="switchTab('dns', this)">
+        🌐 DNS Resolve
+        <span class="tab-count" id="countDns">0</span>
+      </button>
+    </div>
+
+    <!-- Tab: Analysis -->
+    <div class="tab-pane active" id="tab-analysis">
+      <div class="filter-bar">
+        <span class="filter-label">فیلتر:</span>
+        <input class="filter-input" id="filterAddress" placeholder="جستجو address..." oninput="applyFilters()">
+        <select class="filter-select" id="filterProto" onchange="applyFilters()">
+          <option value="">همه پروتکل‌ها</option>
+        </select>
+        <select class="filter-select" id="filterPort" onchange="applyFilters()">
+          <option value="">همه پورت‌ها</option>
+        </select>
+        <select class="filter-select" id="filterTLS" onchange="applyFilters()">
+          <option value="">TLS / بدون TLS</option>
+          <option value="tls">TLS</option>
+          <option value="none">بدون TLS</option>
+        </select>
+        <select class="filter-select" id="filterALPN" onchange="applyFilters()">
+          <option value="">همه ALPN</option>
+        </select>
+      </div>
+
+      <div class="stats-bar" id="statsBar">
+        <div class="stat"><span class="stat-num" id="statUnique">0</span><span class="stat-label">IP/دامنه منحصر به فرد</span></div>
+        <div class="stat"><span class="stat-num" id="statTotal">0</span><span class="stat-label">کل کانفیگ</span></div>
+        <div class="stat"><span class="stat-num" id="statTLS">0</span><span class="stat-label">دارای TLS</span></div>
+        <div class="stat"><span class="stat-num" id="statFiltered">0</span><span class="stat-label">نمایش داده شده</span></div>
+      </div>
+
+      <div class="table-wrap">
+        <table id="mainTable">
+          <thead>
+            <tr>
+              <th onclick="sortBy('address')"><span class="sort-icon">↕</span>Address</th>
+              <th onclick="sortBy('type')"><span class="sort-icon">↕</span>نوع</th>
+              <th onclick="sortBy('portCount')"><span class="sort-icon">↕</span>پورت‌ها</th>
+              <th onclick="sortBy('protoCount')"><span class="sort-icon">↕</span>پروتکل‌ها</th>
+              <th>TLS</th>
+              <th>ALPN</th>
+              <th>Fingerprint</th>
+              <th onclick="sortBy('configCount')"><span class="sort-icon">↕</span>تعداد کانفیگ</th>
+            </tr>
+          </thead>
+          <tbody id="mainTableBody">
+            <tr><td colspan="8">
+              <div class="empty-state">
+                <div class="icon">📭</div>
+                <p>کانفیگ‌ها رو وارد کن و آنالیز کن</p>
+              </div>
+            </td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="export-bar">
+        <button class="export-btn primary" onclick="exportCSV()">⬇ دانلود CSV</button>
+        <button class="export-btn" onclick="exportTXT('address')">📋 فقط IP‌ها</button>
+        <button class="export-btn" onclick="copyAddresses()">📑 کپی آدرس‌ها</button>
+      </div>
+    </div>
+
+    <!-- Tab: DNS -->
+    <div class="tab-pane" id="tab-dns">
+      <div class="dns-input-row">
+        <span style="font-size:12px;color:var(--text-dim);white-space:nowrap">دامنه‌های شناسایی شده:</span>
+        <input class="filter-input" style="flex:1;width:auto" id="dnsDomainsInput"
+          placeholder="یا دامنه‌ها رو اینجا بنویس (هر خط یکی)">
+        <button class="resolve-btn" onclick="resolveDomains()">🌐 Resolve</button>
+        <div class="spinner" id="dnsSpinner"></div>
+      </div>
+      <div class="dns-info">
+        ⚠️ به دلیل محدودیت مرورگر، DNS resolve از Google DoH (dns.google) استفاده میکنه.
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>دامنه</th>
+              <th>IP های resolve شده</th>
+              <th>تعداد IP</th>
+              <th>وضعیت</th>
+            </tr>
+          </thead>
+          <tbody id="dnsTableBody">
+            <tr><td colspan="4">
+              <div class="empty-state">
+                <div class="icon">🌐</div>
+                <p>ابتدا کانفیگ‌ها رو آنالیز کن تا دامنه‌ها شناسایی بشن</p>
+              </div>
+            </td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="export-bar">
+        <button class="export-btn primary" onclick="exportDNSCSV()">⬇ دانلود CSV</button>
+        <button class="export-btn" onclick="copyResolvedIPs()">📋 کپی همه IP‌ها</button>
+      </div>
+    </div>
+
+  </div><!-- tabs-wrapper -->
+
+</div><!-- container -->
+
+<script>
+// ─── State ───────────────────────────────────────────────────
+let groupedData  = [];   // grouped by address
+let filteredData = [];
+let sortKey      = '';
+let sortAsc      = true;
+let dnsResults   = {};
+
+// ─── Parse ───────────────────────────────────────────────────
+function parseConfig(line) {
+  line = line.trim();
+  if (!line) return null;
+  if (line.startsWith('vmess://'))  return parseVmess(line);
+  if (line.startsWith('vless://'))  return parseVlessLike('vless', line);
+  if (line.startsWith('trojan://')) return parseVlessLike('trojan', line);
+  return null;
+}
+
+function parseVmess(line) {
+  try {
+    const json = JSON.parse(atob(line.slice('vmess://'.length)));
+    const tls  = json.tls === 'tls';
+    return {
+      type:        'vmess',
+      address:     json.add   || '',
+      port:        String(json.port || ''),
+      protocol:    'vmess',
+      tls:         tls,
+      alpn:        tls ? (json.alpn || '') : '',
+      fp:          tls ? (json.fp   || '') : '',
+      sni:         tls ? (json.sni  || '') : '',
+      network:     json.net   || '',
+      raw:         line
+    };
+  } catch(e) { return null; }
+}
+
+function parseVlessLike(proto, line) {
+  try {
+    const withoutProto = line.slice((proto + '://').length);
+    const hashIdx = withoutProto.lastIndexOf('#');
+    const main    = hashIdx >= 0 ? withoutProto.slice(0, hashIdx) : withoutProto;
+    const qIdx    = main.indexOf('?');
+    const params  = new URLSearchParams(qIdx >= 0 ? main.slice(qIdx + 1) : '');
+    const hpStr   = qIdx >= 0 ? main.slice(0, qIdx) : main;
+    const atIdx   = hpStr.lastIndexOf('@');
+    const hp      = hpStr.slice(atIdx + 1);
+
+    let host, port;
+    if (hp.startsWith('[')) {
+      const be = hp.indexOf(']');
+      host = hp.slice(1, be);
+      port = hp.slice(be + 2);
+    } else {
+      const lc = hp.lastIndexOf(':');
+      host = hp.slice(0, lc);
+      port = hp.slice(lc + 1);
+    }
+
+    const sec = params.get('security') || 'none';
+    const tls  = sec === 'tls' || sec === 'reality';
+    return {
+      type:        proto,
+      address:     host,
+      port:        port,
+      protocol:    proto,
+      tls:         tls,
+      alpn:        tls ? (params.get('alpn') || '') : '',
+      fp:          tls ? (params.get('fp')   || '') : '',
+      sni:         tls ? (params.get('sni')  || '') : '',
+      network:     params.get('type') || '',
+      raw:         line
+    };
+  } catch(e) { return null; }
+}
+
+function isIP(str) {
+  return /^(\d{1,3}\.){3}\d{1,3}$/.test(str) ||
+         /^[0-9a-fA-F:]+$/.test(str);
+}
+
+// ─── Analyze ─────────────────────────────────────────────────
+function analyze() {
+  const lines = document.getElementById('inputConfigs').value.split('\n');
+  const parsed = [];
+  let skipped = 0;
+
+  lines.forEach(l => {
+    const r = parseConfig(l);
+    if (r) parsed.push(r);
+    else if (l.trim()) skipped++;
+  });
+
+  if (!parsed.length) {
+    showAlert('error', 'هیچ کانفیگ معتبری پیدا نشد.');
+    return;
+  }
+
+  // Group by address
+  const map = {};
+  parsed.forEach(c => {
+    const addr = c.address;
+    if (!map[addr]) {
+      map[addr] = {
+        address:   addr,
+        addrType:  isIP(addr) ? 'IP' : 'Domain',
+        ports:     new Set(),
+        protocols: new Set(),
+        tlsValues: new Set(),
+        alpnValues:new Set(),
+        fpValues:  new Set(),
+        configs:   []
+      };
+    }
+    const g = map[addr];
+    g.ports.add(c.port);
+    g.protocols.add(c.protocol);
+    g.tlsValues.add(c.tls ? 'tls' : 'none');
+    if (c.alpn) c.alpn.split(',').map(s=>s.trim()).filter(Boolean).forEach(v => g.alpnValues.add(v));
+    if (c.fp)   g.fpValues.add(c.fp);
+    g.configs.push(c);
+  });
+
+  groupedData = Object.values(map);
+
+  // Populate filter dropdowns
+  const allProtos = [...new Set(parsed.map(c => c.protocol))].sort();
+  const allPorts  = [...new Set(parsed.map(c => c.port))].sort((a,b)=>Number(a)-Number(b));
+  const allALPNs  = [...new Set(parsed.flatMap(c => c.alpn ? c.alpn.split(',').map(s=>s.trim()) : []))].sort();
+
+  fillSelect('filterProto', allProtos);
+  fillSelect('filterPort',  allPorts);
+  fillSelect('filterALPN',  allALPNs);
+
+  // DNS tab: collect domains
+  const domains = groupedData.filter(g => g.addrType === 'Domain').map(g => g.address);
+  document.getElementById('dnsDomainsInput').value = domains.join('\n');
+  document.getElementById('countDns').textContent = domains.length;
+
+  // Stats
+  document.getElementById('statUnique').textContent = groupedData.length;
+  document.getElementById('statTotal').textContent  = parsed.length;
+  document.getElementById('statTLS').textContent    = parsed.filter(c=>c.tls).length;
+
+  applyFilters();
+  if (skipped) showAlert('info', `${skipped} خط پارس نشد.`);
+  else { document.getElementById('alertBox').className = 'alert'; }
+}
+
+function fillSelect(id, values) {
+  const sel = document.getElementById(id);
+  const first = sel.options[0];
+  sel.innerHTML = '';
+  sel.appendChild(first);
+  values.forEach(v => {
+    const o = document.createElement('option');
+    o.value = v; o.textContent = v;
+    sel.appendChild(o);
+  });
+}
+
+// ─── Filters & Sort ──────────────────────────────────────────
+function applyFilters() {
+  const addr  = document.getElementById('filterAddress').value.toLowerCase();
+  const proto = document.getElementById('filterProto').value;
+  const port  = document.getElementById('filterPort').value;
+  const tls   = document.getElementById('filterTLS').value;
+  const alpn  = document.getElementById('filterALPN').value;
+
+  filteredData = groupedData.filter(g => {
+    if (addr  && !g.address.toLowerCase().includes(addr)) return false;
+    if (proto && ![...g.protocols].includes(proto))       return false;
+    if (port  && ![...g.ports].includes(port))            return false;
+    if (tls === 'tls'  && !g.tlsValues.has('tls'))        return false;
+    if (tls === 'none' && !g.tlsValues.has('none'))       return false;
+    if (alpn  && ![...g.alpnValues].includes(alpn))       return false;
+    return true;
+  });
+
+  if (sortKey) doSort();
+  renderTable();
+}
+
+function sortBy(key) {
+  if (sortKey === key) sortAsc = !sortAsc;
+  else { sortKey = key; sortAsc = true; }
+  document.querySelectorAll('thead th').forEach(th => th.classList.remove('sorted'));
+  event.currentTarget.classList.add('sorted');
+  doSort();
+  renderTable();
+}
+
+function doSort() {
+  filteredData.sort((a, b) => {
+    let va, vb;
+    switch(sortKey) {
+      case 'address':     va = a.address;         vb = b.address;         break;
+      case 'type':        va = a.addrType;        vb = b.addrType;        break;
+      case 'portCount':   va = a.ports.size;      vb = b.ports.size;      break;
+      case 'protoCount':  va = a.protocols.size;  vb = b.protocols.size;  break;
+      case 'configCount': va = a.configs.length;  vb = b.configs.length;  break;
+      default: return 0;
+    }
+    if (typeof va === 'number') return sortAsc ? va-vb : vb-va;
+    return sortAsc ? String(va).localeCompare(String(vb)) : String(vb).localeCompare(String(va));
+  });
+}
+
+function renderTable() {
+  const tbody = document.getElementById('mainTableBody');
+  document.getElementById('statFiltered').textContent = filteredData.length;
+  document.getElementById('countAnalysis').textContent = filteredData.length;
+
+  if (!filteredData.length) {
+    tbody.innerHTML = `<tr><td colspan="8"><div class="no-results">هیچ نتیجه‌ای یافت نشد</div></td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = filteredData.map(g => {
+    const ports   = [...g.ports].sort((a,b)=>Number(a)-Number(b)).map(p => `<span class="tag port">${p}</span>`).join('');
+    const protos  = [...g.protocols].map(p => `<span class="tag proto">${p}</span>`).join('');
+    const tlsHtml = [...g.tlsValues].map(t =>
+      `<span class="tag ${t === 'tls' ? 'tls' : 'none'}">${t}</span>`).join('');
+    const alpnHtml = [...g.alpnValues].size
+      ? [...g.alpnValues].map(v => `<span class="tag alpn">${v}</span>`).join('')
+      : '<span style="color:var(--text-dim);font-size:10px">—</span>';
+    const fpHtml = [...g.fpValues].size
+      ? [...g.fpValues].map(v => `<span class="tag fp">${v}</span>`).join('')
+      : '<span style="color:var(--text-dim);font-size:10px">—</span>';
+
+    return `<tr>
+      <td class="address-cell">${g.address}</td>
+      <td><span class="tag ${g.addrType === 'IP' ? 'ip-type' : 'dom-type'}">${g.addrType}</span></td>
+      <td>${ports}</td>
+      <td>${protos}</td>
+      <td>${tlsHtml}</td>
+      <td>${alpnHtml}</td>
+      <td>${fpHtml}</td>
+      <td><span class="tag count">${g.configs.length}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+// ─── DNS Resolve ─────────────────────────────────────────────
+async function resolveDomains() {
+  const input = document.getElementById('dnsDomainsInput').value;
+  const domains = input.split('\n').map(s=>s.trim()).filter(Boolean);
+  if (!domains.length) return;
+
+  const tbody   = document.getElementById('dnsTableBody');
+  const spinner = document.getElementById('dnsSpinner');
+  spinner.style.display = 'block';
+
+  tbody.innerHTML = domains.map(d =>
+    `<tr id="dns-${CSS.escape(d)}">
+      <td style="font-family:var(--mono);font-weight:600">${d}</td>
+      <td colspan="2" style="color:var(--text-dim);font-size:11px">در حال resolve...</td>
+      <td><span class="tag none">...</span></td>
+    </tr>`
+  ).join('');
+
+  for (const domain of domains) {
+    try {
+      const res  = await fetch(`https://dns.google/resolve?name=${domain}&type=A`);
+      const data = await res.json();
+      const ips  = (data.Answer || []).filter(r => r.type === 1).map(r => r.data);
+      dnsResults[domain] = ips;
+      const row = document.getElementById(`dns-${CSS.escape(domain)}`);
+      if (row) {
+        if (ips.length) {
+          row.innerHTML = `
+            <td style="font-family:var(--mono);font-weight:600;color:var(--text-bright)">${domain}</td>
+            <td>${ips.map(ip => `<span class="tag ip-type">${ip}</span>`).join(' ')}</td>
+            <td><span class="tag count">${ips.length}</span></td>
+            <td><span class="tag tls">✓ OK</span></td>`;
+        } else {
+          row.innerHTML = `
+            <td style="font-family:var(--mono);font-weight:600">${domain}</td>
+            <td colspan="2" style="color:var(--text-dim);font-size:11px">IP پیدا نشد</td>
+            <td><span class="tag none">No A Record</span></td>`;
+        }
+      }
+    } catch(e) {
+      const row = document.getElementById(`dns-${CSS.escape(domain)}`);
+      if (row) row.innerHTML = `
+        <td style="font-family:var(--mono);font-weight:600">${domain}</td>
+        <td colspan="2" style="color:var(--danger);font-size:11px">خطا در resolve</td>
+        <td><span style="color:var(--danger);font-size:10px">Error</span></td>`;
+    }
+  }
+
+  spinner.style.display = 'none';
+  document.getElementById('countDns').textContent = domains.length;
+}
+
+// ─── Export ──────────────────────────────────────────────────
+function exportCSV() {
+  if (!filteredData.length) return;
+  const rows = [['Address','Type','Ports','Protocols','TLS','ALPN','Fingerprint','Config Count']];
+  filteredData.forEach(g => {
+    rows.push([
+      g.address,
+      g.addrType,
+      [...g.ports].join(';'),
+      [...g.protocols].join(';'),
+      [...g.tlsValues].join(';'),
+      [...g.alpnValues].join(';'),
+      [...g.fpValues].join(';'),
+      g.configs.length
+    ]);
+  });
+  downloadFile('config-analysis.csv', rows.map(r => r.map(v=>`"${v}"`).join(',')).join('\n'));
+}
+
+function exportDNSCSV() {
+  const rows = [['Domain','IPs','Count']];
+  Object.entries(dnsResults).forEach(([d, ips]) => {
+    rows.push([d, ips.join(';'), ips.length]);
+  });
+  downloadFile('dns-results.csv', rows.map(r => r.map(v=>`"${v}"`).join(',')).join('\n'));
+}
+
+function exportTXT(field) {
+  const lines = filteredData.map(g => g[field] || g.address);
+  downloadFile('addresses.txt', lines.join('\n'));
+}
+
+function copyAddresses() {
+  const txt = filteredData.map(g => g.address).join('\n');
+  navigator.clipboard.writeText(txt).then(() => showAlert('info', '✓ آدرس‌ها کپی شدند.'));
+}
+
+function copyResolvedIPs() {
+  const all = Object.values(dnsResults).flat();
+  navigator.clipboard.writeText([...new Set(all)].join('\n'))
+    .then(() => showAlert('info', '✓ IP‌های resolve شده کپی شدند.'));
+}
+
+function downloadFile(name, content) {
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+}
+
+// ─── Tabs ────────────────────────────────────────────────────
+function switchTab(id, btn) {
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ─── Alert ───────────────────────────────────────────────────
+function showAlert(type, msg) {
+  const el = document.getElementById('alertBox');
+  el.className = `alert ${type}`;
+  el.textContent = msg;
+}
+</script>
+</body>
+</html>
