@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Xray Config Generator</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Vazirmatn:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0c10;
+    --surface: #111318;
+    --surface2: #181c24;
+    --border: #1e2330;
+    --border-bright: #2a3148;
+    --accent: #00d4aa;
+    --accent2: #0088ff;
+    --accent3: #ff6b35;
+    --text: #c8d0e0;
+    --text-dim: #5a6580;
+    --text-bright: #eef2ff;
+    --success: #00d4aa;
+    --danger: #ff4757;
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'Vazirmatn', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Background grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,212,170,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,170,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 24px 20px;
+  }
+
+  /* Header */
+  header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 32px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .logo {
+    width: 42px;
+    height: 42px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: 18px;
+    color: #000;
+    flex-shrink: 0;
+  }
+
+  header h1 {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text-bright);
+    letter-spacing: -0.3px;
+  }
+
+  header p {
+    font-size: 13px;
+    color: var(--text-dim);
+    margin-top: 2px;
+  }
+
+  .badge {
+    margin-right: auto;
+    padding: 4px 10px;
+    background: rgba(0,212,170,0.08);
+    border: 1px solid rgba(0,212,170,0.2);
+    border-radius: 20px;
+    font-size: 11px;
+    color: var(--accent);
+    font-family: var(--mono);
+  }
+
+  /* Layout */
+  .layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+
+  @media (max-width: 800px) {
+    .layout { grid-template-columns: 1fr; }
+  }
+
+  .full-width { grid-column: 1 / -1; }
+
+  /* Card */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+  }
+
+  .card-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    flex-shrink: 0;
+  }
+
+  .card-icon.teal { background: rgba(0,212,170,0.1); color: var(--accent); }
+  .card-icon.blue { background: rgba(0,136,255,0.1); color: var(--accent2); }
+  .card-icon.orange { background: rgba(255,107,53,0.1); color: var(--accent3); }
+  .card-icon.purple { background: rgba(150,100,255,0.1); color: #9664ff; }
+
+  .card-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-bright);
+  }
+
+  .card-subtitle {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-right: auto;
+  }
+
+  .card-body { padding: 16px 18px; }
+
+  /* Textarea */
+  textarea {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 12px;
+    resize: vertical;
+    outline: none;
+    transition: border-color 0.2s;
+    line-height: 1.6;
+  }
+
+  textarea:focus { border-color: var(--accent); }
+  textarea::placeholder { color: var(--text-dim); }
+
+  /* Checkbox groups */
+  .checkbox-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .check-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .check-item input[type="checkbox"] { display: none; }
+
+  .check-box {
+    width: 16px;
+    height: 16px;
+    border: 1px solid var(--border-bright);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    flex-shrink: 0;
+  }
+
+  .check-box::after {
+    content: '✓';
+    font-size: 10px;
+    color: #000;
+    display: none;
+  }
+
+  .check-item input:checked + .check-box {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+
+  .check-item input:checked + .check-box::after { display: block; }
+
+  .check-label {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text);
+  }
+
+  .check-item:hover .check-box { border-color: var(--accent); }
+
+  .check-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.15s;
+    user-select: none;
+  }
+
+  .check-pill input[type="checkbox"] { display: none; }
+  .check-pill:hover { border-color: var(--border-bright); }
+
+  .check-pill.checked-pill {
+    background: rgba(0,212,170,0.08);
+    border-color: rgba(0,212,170,0.3);
+  }
+
+  .check-pill span {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+
+  .check-pill.checked-pill span { color: var(--accent); }
+
+  /* Port groups */
+  .port-section { margin-bottom: 14px; }
+
+  .port-section-label {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .port-section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .port-type-badge {
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-family: var(--mono);
+  }
+
+  .port-type-badge.http { background: rgba(255,107,53,0.1); color: var(--accent3); }
+  .port-type-badge.https { background: rgba(0,212,170,0.1); color: var(--accent); }
+
+  .hint {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 8px;
+    padding: 8px 10px;
+    background: rgba(255,255,255,0.02);
+    border-radius: 6px;
+    border-right: 2px solid var(--border-bright);
+  }
+
+  /* Generate button */
+  .generate-btn {
+    width: 100%;
+    padding: 14px 24px;
+    background: linear-gradient(135deg, var(--accent), #00a882);
+    border: none;
+    border-radius: 10px;
+    color: #000;
+    font-family: var(--sans);
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    letter-spacing: 0.2px;
+  }
+
+  .generate-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 30px rgba(0,212,170,0.25);
+  }
+
+  .generate-btn:active { transform: translateY(0); }
+
+  /* Stats bar */
+  .stats-bar {
+    display: flex;
+    gap: 16px;
+    padding: 10px 18px;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    align-items: center;
+  }
+
+  .stat {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+  }
+
+  .stat-num {
+    font-family: var(--mono);
+    font-weight: 600;
+    color: var(--accent);
+  }
+
+  .stat-label { color: var(--text-dim); }
+
+  /* Output actions */
+  .output-actions {
+    display: flex;
+    gap: 8px;
+    padding: 10px 18px;
+    background: var(--surface2);
+    border-top: 1px solid var(--border);
+  }
+
+  .action-btn {
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--border-bright);
+    background: transparent;
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .action-btn:hover {
+    background: var(--border);
+    color: var(--text-bright);
+  }
+
+  .action-btn.primary {
+    background: rgba(0,136,255,0.1);
+    border-color: rgba(0,136,255,0.3);
+    color: var(--accent2);
+  }
+
+  .action-btn.primary:hover {
+    background: rgba(0,136,255,0.2);
+  }
+
+  /* Error/warning */
+  .alert {
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    margin-bottom: 12px;
+    display: none;
+  }
+
+  .alert.error {
+    background: rgba(255,71,87,0.1);
+    border: 1px solid rgba(255,71,87,0.2);
+    color: var(--danger);
+    display: block;
+  }
+
+  .alert.info {
+    background: rgba(0,212,170,0.05);
+    border: 1px solid rgba(0,212,170,0.15);
+    color: var(--accent);
+    display: block;
+  }
+
+  /* Section divider */
+  .section-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 10px;
+  }
+
+  /* Select all row */
+  .select-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+
+  .select-all-btn {
+    font-size: 11px;
+    color: var(--accent);
+    cursor: pointer;
+    background: none;
+    border: none;
+    font-family: var(--sans);
+    padding: 0;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .select-all-btn:hover { color: var(--text-bright); }
+
+  /* Scrollable output */
+  .output-textarea {
+    min-height: 200px;
+    max-height: 400px;
+  }
+
+  /* Copy flash */
+  @keyframes flashGreen {
+    0% { background: rgba(0,212,170,0.2); }
+    100% { background: transparent; }
+  }
+
+  .flash { animation: flashGreen 0.5s ease; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="logo">⚡</div>
+    <div>
+      <h1>Xray Config Generator</h1>
+      <p>تولید کانفیگ با IP/دامنه و تنظیمات سفارشی</p>
+    </div>
+    <div class="badge">XRAY</div>
+  </header>
+
+  <div id="alertBox" class="alert"></div>
+
+  <div class="layout">
+
+    <!-- Input Configs -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon teal">📋</div>
+        <span class="card-title">کانفیگ‌های ورودی</span>
+        <span class="card-subtitle">هر خط یک کانفیگ</span>
+      </div>
+      <div class="card-body">
+        <textarea id="inputConfigs" rows="10" placeholder="vless://uuid@host:port?...#name&#10;vmess://base64...&#10;trojan://pass@host:port?...#name"></textarea>
+      </div>
+    </div>
+
+    <!-- IPs -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon blue">🌐</div>
+        <span class="card-title">IP / دامنه‌های Cloudflare</span>
+        <span class="card-subtitle">هر خط یک آیتم</span>
+      </div>
+      <div class="card-body">
+        <textarea id="inputIPs" rows="10" placeholder="1.1.1.1&#10;cloudflare.example.com&#10;104.16.0.1"></textarea>
+      </div>
+    </div>
+
+    <!-- Ports -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon orange">🔌</div>
+        <span class="card-title">پورت‌ها</span>
+        <span class="card-subtitle">تیک نزدی = پورت اصلی کانفیگ</span>
+      </div>
+      <div class="card-body">
+        <div class="port-section">
+          <div class="port-section-label">
+            <span class="port-type-badge http">HTTP</span>
+          </div>
+          <div class="checkbox-group" id="httpPorts"></div>
+        </div>
+        <div class="port-section">
+          <div class="port-section-label">
+            <span class="port-type-badge https">HTTPS / TLS</span>
+          </div>
+          <div class="checkbox-group" id="httpsPorts"></div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:10px;">
+          <button class="select-all-btn" onclick="selectAllPorts()">انتخاب همه</button>
+          <button class="select-all-btn" style="color:var(--text-dim)" onclick="deselectAllPorts()">حذف انتخاب</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Fingerprint & ALPN -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon purple">🔐</div>
+        <span class="card-title">Fingerprint & ALPN</span>
+        <span class="card-subtitle">فقط برای کانفیگ‌های TLS</span>
+      </div>
+      <div class="card-body">
+        <div class="section-label">Fingerprint</div>
+        <div class="hint" style="margin-bottom:10px">تیک نزدی = مقدار اصلی کانفیگ حفظ میشه</div>
+        <div class="checkbox-group" id="fpGroup"></div>
+
+        <div class="section-label" style="margin-top:16px">ALPN</div>
+        <div class="hint" style="margin-bottom:10px">تیک نزدی = مقدار اصلی کانفیگ حفظ میشه</div>
+        <div class="checkbox-group" id="alpnGroup"></div>
+      </div>
+    </div>
+
+    <!-- Generate Button -->
+    <div class="full-width">
+      <button class="generate-btn" onclick="generateAll()">
+        ⚡ تولید کانفیگ‌ها
+      </button>
+    </div>
+
+    <!-- Output -->
+    <div class="card full-width">
+      <div class="card-header">
+        <div class="card-icon teal">📤</div>
+        <span class="card-title">خروجی</span>
+        <span id="outputStats" class="card-subtitle">—</span>
+      </div>
+      <div class="card-body">
+        <textarea id="outputConfigs" class="output-textarea" rows="14" readonly placeholder="کانفیگ‌های تولید شده اینجا نمایش داده میشن..."></textarea>
+      </div>
+      <div class="output-actions">
+        <button class="action-btn primary" onclick="copyOutput()">📋 کپی همه</button>
+        <button class="action-btn" onclick="downloadOutput()">⬇ دانلود TXT</button>
+        <button class="action-btn" onclick="clearAll()">🗑 پاک کردن</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ─── Constants ───────────────────────────────────────────────
+const HTTP_PORTS  = [80, 2052, 2082, 2086, 2095, 8080, 8880];
+const HTTPS_PORTS = [443, 2053, 2083, 2087, 2096, 8443];
+const FP_VALUES   = ['chrome', 'firefox', 'safari', 'ios', 'android', 'edge', '360', 'qq', 'random', 'randomized'];
+const ALPN_VALUES = ['h3', 'h2', 'http/1.1', 'h2,http/1.1', 'h2,http/1.1,h3'];
+
+// ─── Init UI ─────────────────────────────────────────────────
+function buildPills(containerId, values, groupClass) {
+  const el = document.getElementById(containerId);
+  values.forEach(v => {
+    const label = document.createElement('label');
+    label.className = 'check-pill';
+    label.innerHTML = `<input type="checkbox" class="${groupClass}" value="${v}"><span>${v}</span>`;
+    const inp = label.querySelector('input');
+    inp.addEventListener('change', () => {
+      label.classList.toggle('checked-pill', inp.checked);
+    });
+    el.appendChild(label);
+  });
+}
+
+function buildPortPills(containerId, ports) {
+  const el = document.getElementById(containerId);
+  ports.forEach(p => {
+    const label = document.createElement('label');
+    label.className = 'check-pill';
+    label.innerHTML = `<input type="checkbox" class="port-check" value="${p}"><span>${p}</span>`;
+    const inp = label.querySelector('input');
+    inp.addEventListener('change', () => {
+      label.classList.toggle('checked-pill', inp.checked);
+    });
+    el.appendChild(label);
+  });
+}
+
+buildPortPills('httpPorts', HTTP_PORTS);
+buildPortPills('httpsPorts', HTTPS_PORTS);
+buildPills('fpGroup', FP_VALUES, 'fp-check');
+buildPills('alpnGroup', ALPN_VALUES, 'alpn-check');
+
+function getChecked(cls) {
+  return [...document.querySelectorAll(`.${cls}:checked`)].map(i => i.value);
+}
+
+function selectAllPorts() {
+  document.querySelectorAll('.port-check').forEach(i => {
+    i.checked = true;
+    i.closest('.check-pill').classList.add('checked-pill');
+  });
+}
+
+function deselectAllPorts() {
+  document.querySelectorAll('.port-check').forEach(i => {
+    i.checked = false;
+    i.closest('.check-pill').classList.remove('checked-pill');
+  });
+}
+
+// ─── Parsers ─────────────────────────────────────────────────
+function parseConfig(line) {
+  line = line.trim();
+  if (!line) return null;
+  if (line.startsWith('vmess://')) return parseVmess(line);
+  if (line.startsWith('vless://')) return parseVlessLike('vless', line);
+  if (line.startsWith('trojan://')) return parseVlessLike('trojan', line);
+  return null;
+}
+
+function parseVmess(line) {
+  try {
+    const b64 = line.slice('vmess://'.length);
+    const json = JSON.parse(atob(b64));
+    return { type: 'vmess', data: json };
+  } catch(e) {
+    return null;
+  }
+}
+
+function parseVlessLike(type, line) {
+  try {
+    const withoutProto = line.slice((type + '://').length);
+    const hashIdx = withoutProto.lastIndexOf('#');
+    const name = hashIdx >= 0 ? withoutProto.slice(hashIdx + 1) : '';
+    const main  = hashIdx >= 0 ? withoutProto.slice(0, hashIdx) : withoutProto;
+    const qIdx  = main.indexOf('?');
+    const paramsStr = qIdx >= 0 ? main.slice(qIdx + 1) : '';
+    const params = new URLSearchParams(paramsStr);
+    const hostPortStr = qIdx >= 0 ? main.slice(0, qIdx) : main;
+    const atIdx = hostPortStr.lastIndexOf('@');
+    const user  = hostPortStr.slice(0, atIdx);
+    const hp    = hostPortStr.slice(atIdx + 1);
+
+    let host, port;
+    if (hp.startsWith('[')) {
+      const be = hp.indexOf(']');
+      host = hp.slice(1, be);
+      port = hp.slice(be + 2);
+    } else {
+      const lc = hp.lastIndexOf(':');
+      host = hp.slice(0, lc);
+      port = hp.slice(lc + 1);
+    }
+    return { type, user, host, port, params, name };
+  } catch(e) {
+    return null;
+  }
+}
+
+// ─── TLS detection ───────────────────────────────────────────
+function isTLS(parsed) {
+  if (parsed.type === 'vmess') {
+    return parsed.data.tls === 'tls';
+  }
+  const sec = parsed.params.get('security') || '';
+  return sec === 'tls' || sec === 'reality';
+}
+
+// ─── Config builder ──────────────────────────────────────────
+function buildConfig(parsed, ip, port, fp, alpn) {
+  if (parsed.type === 'vmess') {
+    const d = JSON.parse(JSON.stringify(parsed.data));
+    d.add  = ip;
+    d.port = String(port);
+    if (isTLS(parsed)) {
+      if (fp   !== null) d.fp   = fp;
+      if (alpn !== null) d.alpn = alpn;
+    }
+    return 'vmess://' + btoa(unescape(encodeURIComponent(JSON.stringify(d))));
+  }
+
+  // vless / trojan
+  const params = new URLSearchParams(parsed.params.toString());
+  if (isTLS(parsed)) {
+    if (fp   !== null) params.set('fp',   fp);
+    if (alpn !== null) params.set('alpn', alpn);
+  }
+
+  const hostPart = ip.includes(':') ? `[${ip}]` : ip;
+  const hashPart = parsed.name ? '#' + parsed.name : '';
+  return `${parsed.type}://${parsed.user}@${hostPart}:${port}?${params.toString()}${hashPart}`;
+}
+
+// ─── Main generator ──────────────────────────────────────────
+function generateAll() {
+  const alertBox = document.getElementById('alertBox');
+  alertBox.className = 'alert';
+  alertBox.textContent = '';
+
+  const configLines = document.getElementById('inputConfigs').value.split('\n').filter(l => l.trim());
+  const ipLines     = document.getElementById('inputIPs').value.split('\n').map(l => l.trim()).filter(Boolean);
+
+  if (!configLines.length) { showAlert('error', 'لطفاً حداقل یک کانفیگ وارد کنید.'); return; }
+  if (!ipLines.length)     { showAlert('error', 'لطفاً حداقل یک IP یا دامنه وارد کنید.'); return; }
+
+  const selectedPorts = getChecked('port-check').map(Number);
+  const selectedFPs   = getChecked('fp-check');
+  const selectedALPNs = getChecked('alpn-check');
+
+  const results = [];
+  let skipped = 0;
+
+  for (const line of configLines) {
+    const parsed = parseConfig(line);
+    if (!parsed) { skipped++; continue; }
+
+    const tlsConfig = isTLS(parsed);
+    const ports  = selectedPorts.length ? selectedPorts : [parseInt(parsed.type === 'vmess' ? parsed.data.port : parsed.port)];
+    const fps    = (tlsConfig && selectedFPs.length)   ? selectedFPs   : [null];
+    const alpns  = (tlsConfig && selectedALPNs.length) ? selectedALPNs : [null];
+
+    for (const ip of ipLines) {
+      for (const port of ports) {
+        for (const fp of fps) {
+          for (const alpn of alpns) {
+            results.push(buildConfig(parsed, ip, port, fp, alpn));
+          }
+        }
+      }
+    }
+  }
+
+  const output = document.getElementById('outputConfigs');
+  output.value = results.join('\n');
+
+  document.getElementById('outputStats').textContent =
+    `${results.length} کانفیگ تولید شد${skipped ? ` · ${skipped} خط نادیده گرفته شد` : ''}`;
+
+  if (results.length > 0) {
+    output.classList.add('flash');
+    setTimeout(() => output.classList.remove('flash'), 500);
+  }
+
+  if (skipped > 0) {
+    showAlert('info', `${skipped} خط پارس نشد (فقط vless/vmess/trojan پشتیبانی میشه).`);
+  }
+}
+
+// ─── Helpers ─────────────────────────────────────────────────
+function showAlert(type, msg) {
+  const el = document.getElementById('alertBox');
+  el.className = `alert ${type}`;
+  el.textContent = msg;
+}
+
+function copyOutput() {
+  const val = document.getElementById('outputConfigs').value;
+  if (!val) return;
+  navigator.clipboard.writeText(val).then(() => {
+    showAlert('info', '✓ کانفیگ‌ها در کلیپ‌بورد کپی شدند.');
+  });
+}
+
+function downloadOutput() {
+  const val = document.getElementById('outputConfigs').value;
+  if (!val) return;
+  const blob = new Blob([val], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'xray-configs.txt';
+  a.click();
+}
+
+function clearAll() {
+  document.getElementById('outputConfigs').value = '';
+  document.getElementById('outputStats').textContent = '—';
+  document.getElementById('alertBox').className = 'alert';
+}
+</script>
+</body>
+</html>
